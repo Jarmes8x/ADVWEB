@@ -1,7 +1,10 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 
-const dbPath = path.resolve(__dirname, '../../database.sqlite');
+// Vercel's filesystem is read-only except /tmp (data resets when the function restarts)
+const dbPath = process.env.VERCEL
+  ? '/tmp/database.sqlite'
+  : path.resolve(__dirname, '../../database.sqlite');
 export const db = new Database(dbPath);
 
 db.pragma('journal_mode = WAL');

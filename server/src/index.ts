@@ -25,6 +25,11 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 Smart Rider Backend running on http://localhost:${PORT}`);
-});
+// On Vercel the exported app is used as a serverless function, so only listen locally
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`🚀 Smart Rider Backend running on http://localhost:${PORT}`);
+  });
+}
+
+export default app;
