@@ -7,7 +7,8 @@ import { Customer, Order, Rider, RouteOptimizationResult } from '../models/types
   providedIn: 'root'
 })
 export class ApiService {
-  private baseUrl = 'http://localhost:3000/api';
+  // Relative URL: the dev server proxies /api to the backend (see proxy.conf.json)
+  private baseUrl = '/api';
 
   constructor(private http: HttpClient) {}
 

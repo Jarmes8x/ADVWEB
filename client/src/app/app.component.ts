@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
+import { AuthService } from './services/auth.service';
 
 @Component({
   selector: 'app-root',
@@ -20,7 +21,8 @@ import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
           </div>
 
           <!-- Navigation Links -->
-          <nav class="nav-links">
+          <nav class="nav-links" *ngIf="auth.user() as user">
+            <ng-container *ngIf="auth.isAdmin()">
             <a routerLink="/routes" routerLinkActive="active" class="nav-item">
               <span class="icon">🗺️</span> จัดเส้นทาง & แผนที่
             </a>
@@ -30,9 +32,12 @@ import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
             <a routerLink="/customers" routerLinkActive="active" class="nav-item">
               <span class="icon">👥</span> จัดการลูกค้า
             </a>
+            </ng-container>
             <a routerLink="/rider" routerLinkActive="active" class="nav-item rider-btn">
-              <span class="icon">📱</span> หน้าจอไรเดอร์ (มือถือ)
+              <span class="icon">📱</span> {{ auth.isAdmin() ? 'หน้าจอไรเดอร์ (มือถือ)' : 'ใบงานของฉัน' }}
             </a>
+            <span class="user-badge">👤 {{ user.username }}</span>
+            <button type="button" class="nav-item logout-btn" (click)="auth.logout()">ออกจากระบบ</button>
           </nav>
         </div>
       </header>
@@ -138,6 +143,17 @@ import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
       background: #16a34a;
       color: white;
     }
+    .user-badge {
+      font-size: 13px;
+      color: #475569;
+      padding: 0 6px;
+    }
+    .logout-btn {
+      border: 1px solid #e2e8f0;
+      background: white;
+      cursor: pointer;
+      font-family: inherit;
+    }
     .main-body {
       flex: 1;
       padding: 24px;
@@ -166,4 +182,6 @@ import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 })
 export class AppComponent {
   title = 'ข้าวกล่องเดลิเวอรี่';
+
+  constructor(public auth: AuthService) {}
 }

@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../services/api.service';
 import { RiderRoute, Rider } from '../../models/types';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-rider-portal',
@@ -23,8 +24,8 @@ import { RiderRoute, Rider } from '../../models/types';
         </div>
       </div>
 
-      <!-- Job Number Input Box -->
-      <div class="job-search-card card">
+      <!-- Job Number Input Box (admin only; riders see their own sheet) -->
+      <div class="job-search-card card" *ngIf="auth.isAdmin()">
         <label for="jobCode">🔑 กรอกเลขใบงาน หรือ เลือกชื่อไรเดอร์</label>
         <div class="input-action-row">
           <input 
@@ -421,10 +422,16 @@ export class RiderPortalComponent implements OnInit {
   currentRoute: RiderRoute | null = null;
   errorMessage: string = '';
 
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService, public auth: AuthService) {}
 
   ngOnInit() {
-    this.loadRiders();
+    const user = this.auth.user();
+    if (user?.role === 'rider' && user.riderId) {
+      // Riders are locked to their own job sheet
+      this.jobInput = user.riderId.toString();
+    } else {
+      this.loadRiders();
+    }
     this.searchJob();
   }
 

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { db, SHOP_LOCATION } from '../database/connection';
 import { RouteOptimizerService } from '../services/routeOptimizer';
 import { Order, Rider } from '../models/types';
+import { requireRole, canAccessRider, sendServerError } from '../middleware/auth';
 
 export const routingRouter = Router();
 const optimizer = new RouteOptimizerService();
@@ -10,7 +11,7 @@ const optimizer = new RouteOptimizerService();
 let latestPlan: any = null;
 
 // POST /api/routes/optimize - Run or re-calculate route optimization
-routingRouter.post('/optimize', (req, res) => {
+routingRouter.post('/optimize', requireRole('admin'), (req, res) => {
   try {
     const seed = Number(req.body.seed) || 0;
 
@@ -55,13 +56,13 @@ routingRouter.post('/optimize', (req, res) => {
     persistAssignments();
 
     res.json(plan);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    sendServerError(res, error);
   }
 });
 
 // GET /api/routes/current - Get current optimized plan
-routingRouter.get('/current', (req, res) => {
+routingRouter.get('/current', requireRole('admin'), (req, res) => {
   try {
     if (!latestPlan) {
       // Generate initial plan automatically if not generated yet
@@ -87,8 +88,8 @@ routingRouter.get('/current', (req, res) => {
       latestPlan = optimizer.optimize(orders, riders, SHOP_LOCATION, 0);
     }
     res.json(latestPlan);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    sendServerError(res, error);
   }
 });
 
@@ -103,6 +104,14 @@ routingRouter.get('/rider/:jobCodeOrId', (req, res) => {
       if (match) {
         riderId = parseInt(match[0], 10);
       }
+    }
+
+    if (isNaN(riderId)) {
+      return res.status(400).json({ error: 'หมายเลขใบงานไม่ถูกต้อง' });
+    }
+
+    if (!canAccessRider(req.user, riderId)) {
+      return res.status(403).json({ error: 'ไม่มีสิทธิ์ดูใบงานของไรเดอร์คนอื่น' });
     }
 
     if (!latestPlan) {
@@ -138,7 +147,7 @@ routingRouter.get('/rider/:jobCodeOrId', (req, res) => {
       shopLocation: latestPlan.shopLocation,
       route
     });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    sendServerError(res, error);
   }
 });

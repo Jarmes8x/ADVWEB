@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { sendServerError } from '../middleware/auth';
 import { db } from '../database/connection';
 import { Customer } from '../models/types';
 
@@ -9,8 +10,8 @@ customerRouter.get('/', (req, res) => {
   try {
     const customers = db.prepare('SELECT * FROM customers ORDER BY id DESC').all();
     res.json(customers);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    sendServerError(res, error);
   }
 });
 
@@ -22,8 +23,8 @@ customerRouter.get('/:id', (req, res) => {
       return res.status(404).json({ error: 'Customer not found' });
     }
     res.json(customer);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    sendServerError(res, error);
   }
 });
 
@@ -31,8 +32,8 @@ customerRouter.get('/:id', (req, res) => {
 customerRouter.post('/', (req, res) => {
   try {
     const { name, phone, address, lat, lng }: Customer = req.body;
-    if (!name || !phone || !address || lat === undefined || lng === undefined) {
-      return res.status(400).json({ error: 'Missing required customer fields' });
+    if (!name || !phone || !address || !Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng))) {
+      return res.status(400).json({ error: 'Missing or invalid customer fields' });
     }
     const result = db.prepare(`
       INSERT INTO customers (name, phone, address, lat, lng)
@@ -41,8 +42,8 @@ customerRouter.post('/', (req, res) => {
 
     const newCustomer = db.prepare('SELECT * FROM customers WHERE id = ?').get(result.lastInsertRowid);
     res.status(201).json(newCustomer);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    sendServerError(res, error);
   }
 });
 
@@ -50,6 +51,9 @@ customerRouter.post('/', (req, res) => {
 customerRouter.put('/:id', (req, res) => {
   try {
     const { name, phone, address, lat, lng }: Customer = req.body;
+    if (!name || !phone || !address || !Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng))) {
+      return res.status(400).json({ error: 'Missing or invalid customer fields' });
+    }
     const result = db.prepare(`
       UPDATE customers
       SET name = ?, phone = ?, address = ?, lat = ?, lng = ?
@@ -61,8 +65,8 @@ customerRouter.put('/:id', (req, res) => {
     }
     const updated = db.prepare('SELECT * FROM customers WHERE id = ?').get(req.params.id);
     res.json(updated);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    sendServerError(res, error);
   }
 });
 
@@ -75,7 +79,7 @@ customerRouter.delete('/:id', (req, res) => {
       return res.status(404).json({ error: 'Customer not found' });
     }
     res.json({ success: true, message: 'Customer deleted' });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    sendServerError(res, error);
   }
 });

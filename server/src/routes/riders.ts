@@ -1,16 +1,20 @@
 import { Router } from 'express';
 import { db } from '../database/connection';
 import { Rider } from '../models/types';
+import { canAccessRider, sendServerError } from '../middleware/auth';
 
 export const riderRouter = Router();
 
 // GET all 13 fixed riders
 riderRouter.get('/', (req, res) => {
   try {
-    const riders = db.prepare('SELECT * FROM riders ORDER BY id ASC').all();
+    // Riders only get their own record; admins get everyone
+    const riders = req.user?.role === 'admin'
+      ? db.prepare('SELECT * FROM riders ORDER BY id ASC').all()
+      : db.prepare('SELECT * FROM riders WHERE id = ?').all(req.user?.riderId);
     res.json(riders);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    sendServerError(res, error);
   }
 });
 
@@ -28,12 +32,16 @@ riderRouter.get('/:idOrCode', (req, res) => {
       }
     }
 
+    if (!canAccessRider(req.user, riderId)) {
+      return res.status(403).json({ error: 'ไม่มีสิทธิ์ดูข้อมูลไรเดอร์คนอื่น' });
+    }
+
     const rider = db.prepare('SELECT * FROM riders WHERE id = ?').get(riderId);
     if (!rider) {
       return res.status(404).json({ error: 'Rider not found' });
     }
     res.json(rider);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    sendServerError(res, error);
   }
 });

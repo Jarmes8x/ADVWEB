@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3';
 import path from 'path';
+import { hashPassword } from '../middleware/auth';
 
 // Vercel's filesystem is read-only except /tmp (data resets when the function restarts)
 const dbPath = process.env.VERCEL
@@ -62,6 +63,15 @@ export function initDatabase() {
       color TEXT NOT NULL,
       maxOrders INTEGER DEFAULT 3,
       status TEXT DEFAULT 'active'
+    );
+
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT NOT NULL UNIQUE,
+      passwordHash TEXT NOT NULL,
+      role TEXT NOT NULL CHECK(role IN ('admin', 'rider')),
+      riderId INTEGER,
+      FOREIGN KEY(riderId) REFERENCES riders(id)
     );
   `);
 
@@ -158,4 +168,31 @@ export function initDatabase() {
     });
     seedOrders();
   }
+
+  seedUsers();
+}
+
+// Seed login accounts: 1 admin + 1 account per rider (rider01..rider13)
+function seedUsers() {
+  const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number };
+  if (userCount.count > 0) return;
+
+  const isProduction = !!process.env.VERCEL || process.env.NODE_ENV === 'production';
+  const adminPassword = process.env.ADMIN_PASSWORD || (isProduction ? '' : 'admin1234');
+  const riderPassword = process.env.RIDER_PASSWORD || (isProduction ? '' : 'rider1234');
+  if (!adminPassword || !riderPassword) {
+    throw new Error('ADMIN_PASSWORD and RIDER_PASSWORD environment variables are required in production');
+  }
+
+  const insertUser = db.prepare(`
+    INSERT INTO users (username, passwordHash, role, riderId) VALUES (?, ?, ?, ?)
+  `);
+  const riders = db.prepare('SELECT id FROM riders ORDER BY id ASC').all() as { id: number }[];
+
+  db.transaction(() => {
+    insertUser.run('admin', hashPassword(adminPassword), 'admin', null);
+    for (const r of riders) {
+      insertUser.run(`rider${r.id.toString().padStart(2, '0')}`, hashPassword(riderPassword), 'rider', r.id);
+    }
+  })();
 }

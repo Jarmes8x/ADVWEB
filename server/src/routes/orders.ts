@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { sendServerError } from '../middleware/auth';
 import { db } from '../database/connection';
 import { Order } from '../models/types';
 
@@ -27,8 +28,8 @@ orderRouter.get('/', (req, res) => {
       ORDER BY o.id ASC
     `).all();
     res.json(orders);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    sendServerError(res, error);
   }
 });
 
@@ -57,8 +58,8 @@ orderRouter.post('/', (req, res) => {
     `).get(result.lastInsertRowid);
 
     res.status(201).json(newOrder);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    sendServerError(res, error);
   }
 });
 
@@ -93,8 +94,8 @@ orderRouter.put('/:id', (req, res) => {
     `).get(req.params.id);
 
     res.json(updated);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    sendServerError(res, error);
   }
 });
 
@@ -106,15 +107,19 @@ orderRouter.delete('/:id', (req, res) => {
       return res.status(404).json({ error: 'Order not found' });
     }
     res.json({ success: true, message: 'Order deleted' });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    sendServerError(res, error);
   }
 });
 
 // GENERATE SIMULATED ORDERS (จำลองออเดอร์มื้อเที่ยง 25 - 35 รายการ)
 orderRouter.post('/simulate', (req, res) => {
   try {
-    const count = Number(req.body.count) || 28; // Default 28 orders for lunch rush
+    const MAX_SIMULATED_ORDERS = 100;
+    const count = req.body?.count === undefined ? 28 : Number(req.body.count); // Default 28 orders for lunch rush
+    if (!Number.isInteger(count) || count < 1 || count > MAX_SIMULATED_ORDERS) {
+      return res.status(400).json({ error: `count must be an integer between 1 and ${MAX_SIMULATED_ORDERS}` });
+    }
     const customers = db.prepare('SELECT id FROM customers').all() as { id: number }[];
 
     if (customers.length === 0) {
@@ -154,8 +159,8 @@ orderRouter.post('/simulate', (req, res) => {
     `).all();
 
     res.json({ message: `Simulated ${count} lunch orders successfully!`, orders });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    sendServerError(res, error);
   }
 });
 
@@ -164,7 +169,7 @@ orderRouter.delete('/', (req, res) => {
   try {
     db.prepare('DELETE FROM orders').run();
     res.json({ success: true, message: 'All orders cleared' });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    sendServerError(res, error);
   }
 });

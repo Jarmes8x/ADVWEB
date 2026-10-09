@@ -2,33 +2,67 @@
 
 Base URL
 - Local: `http://localhost:3000/api`
-- Vercel: `https://<project-name>.vercel.app/api`
+- Vercel: `https://pro-advweb-ef39.vercel.app/api`
 
 ทุกเส้นรับ/ส่ง JSON (`Content-Type: application/json`)
-Error ทุกเส้นมีรูปแบบ `{ "error": "ข้อความ" }` พร้อม status 400 / 404 / 500
-ยังไม่มีระบบ authentication ใครมี URL ก็เรียกได้ทุกเส้น รวมถึงเส้นที่ลบข้อมูล
+Error ทุกเส้นมีรูปแบบ `{ "error": "ข้อความ" }` พร้อม status 400 / 401 / 403 / 404 / 500
+(500 จะตอบข้อความกลางๆ `เกิดข้อผิดพลาดภายในระบบ` รายละเอียดจริงดูได้ใน log ของ server)
+
+## การยืนยันตัวตน (JWT)
+
+ทุกเส้นยกเว้น `/api/health` และ `/api/auth/login` ต้องส่ง header
+```
+Authorization: Bearer <token>
+```
+- ไม่ส่ง token / token ผิด / หมดอายุ (8 ชั่วโมง) → `401`
+- token ถูกแต่สิทธิ์ไม่พอ → `403`
+
+บัญชีเริ่มต้น (สร้างให้อัตโนมัติตอนสร้างฐานข้อมูลครั้งแรก)
+
+| Username | Role | รหัสผ่าน (local) | รหัสผ่าน (production) |
+|---|---|---|---|
+| `admin` | admin | `admin1234` | ค่าจาก env `ADMIN_PASSWORD` |
+| `rider01` – `rider13` | rider (ผูกกับไรเดอร์เบอร์ 1–13) | `rider1234` | ค่าจาก env `RIDER_PASSWORD` |
+
+### POST `/api/auth/login`
+```json
+{ "username": "rider01", "password": "rider1234" }
+```
+ผลลัพธ์
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIs...",
+  "user": { "userId": 2, "username": "rider01", "role": "rider", "riderId": 1 }
+}
+```
+ชื่อผู้ใช้หรือรหัสผ่านผิด → `401`
+
+### GET `/api/auth/me`
+คืนข้อมูลผู้ใช้ของ token ปัจจุบัน `{ "user": { ... } }`
 
 ## สรุปทุกเส้น
 
-| # | Method | Path | หน้าที่ |
-|---|---|---|---|
-| 1 | GET | `/api/health` | เช็คว่า server ทำงาน |
-| 2 | GET | `/api/customers` | ลูกค้าทั้งหมด |
-| 3 | GET | `/api/customers/:id` | ลูกค้า 1 คน |
-| 4 | POST | `/api/customers` | เพิ่มลูกค้า |
-| 5 | PUT | `/api/customers/:id` | แก้ไขลูกค้า |
-| 6 | DELETE | `/api/customers/:id` | ลบลูกค้า (ลบออเดอร์ของลูกค้าด้วย) |
-| 7 | GET | `/api/orders` | ออเดอร์ทั้งหมด |
-| 8 | POST | `/api/orders` | เพิ่มออเดอร์ |
-| 9 | PUT | `/api/orders/:id` | แก้ไขออเดอร์ |
-| 10 | DELETE | `/api/orders/:id` | ลบออเดอร์ 1 รายการ |
-| 11 | DELETE | `/api/orders` | ลบออเดอร์ทั้งหมด |
-| 12 | POST | `/api/orders/simulate` | จำลองออเดอร์มื้อเที่ยง |
-| 13 | GET | `/api/riders` | ไรเดอร์ทั้งหมด (13 คน) |
-| 14 | GET | `/api/riders/:idOrCode` | ไรเดอร์ 1 คน |
-| 15 | POST | `/api/routes/optimize` | คำนวณเส้นทางใหม่ |
-| 16 | GET | `/api/routes/current` | แผนเส้นทางล่าสุด |
-| 17 | GET | `/api/routes/rider/:jobCodeOrId` | ใบงานของไรเดอร์ 1 คน |
+| # | Method | Path | หน้าที่ | สิทธิ์ |
+|---|---|---|---|---|
+| 1 | GET | `/api/health` | เช็คว่า server ทำงาน | ทุกคน |
+| 2 | POST | `/api/auth/login` | เข้าสู่ระบบ รับ token | ทุกคน |
+| 3 | GET | `/api/auth/me` | ข้อมูลผู้ใช้ปัจจุบัน | login แล้ว |
+| 4 | GET | `/api/customers` | ลูกค้าทั้งหมด | admin |
+| 5 | GET | `/api/customers/:id` | ลูกค้า 1 คน | admin |
+| 6 | POST | `/api/customers` | เพิ่มลูกค้า | admin |
+| 7 | PUT | `/api/customers/:id` | แก้ไขลูกค้า | admin |
+| 8 | DELETE | `/api/customers/:id` | ลบลูกค้า (ลบออเดอร์ของลูกค้าด้วย) | admin |
+| 9 | GET | `/api/orders` | ออเดอร์ทั้งหมด | admin |
+| 10 | POST | `/api/orders` | เพิ่มออเดอร์ | admin |
+| 11 | PUT | `/api/orders/:id` | แก้ไขออเดอร์ | admin |
+| 12 | DELETE | `/api/orders/:id` | ลบออเดอร์ 1 รายการ | admin |
+| 13 | DELETE | `/api/orders` | ลบออเดอร์ทั้งหมด | admin |
+| 14 | POST | `/api/orders/simulate` | จำลองออเดอร์มื้อเที่ยง | admin |
+| 15 | GET | `/api/riders` | ไรเดอร์ทั้งหมด (rider เห็นแค่ตัวเอง) | admin, rider |
+| 16 | GET | `/api/riders/:idOrCode` | ไรเดอร์ 1 คน (rider ดูได้แค่ตัวเอง) | admin, rider |
+| 17 | POST | `/api/routes/optimize` | คำนวณเส้นทางใหม่ | admin |
+| 18 | GET | `/api/routes/current` | แผนเส้นทางล่าสุด | admin |
+| 19 | GET | `/api/routes/rider/:jobCodeOrId` | ใบงานของไรเดอร์ (rider ดูได้แค่ของตัวเอง) | admin, rider |
 
 ---
 
@@ -62,7 +96,7 @@ Body (บังคับทุกฟิลด์ ถ้าขาด → `400`)
 ตอบ `201` พร้อมลูกค้าที่สร้าง (มี `id`)
 
 ### PUT `/api/customers/:id`
-Body เหมือน POST ต้องส่งครบทุกฟิลด์ (ฟิลด์ที่ไม่ส่งจะกลายเป็นค่าว่าง)
+Body เหมือน POST ต้องส่งครบทุกฟิลด์ ถ้าขาดหรือ lat/lng ไม่ใช่ตัวเลข → `400`
 ตอบลูกค้าที่แก้แล้ว ถ้าไม่พบ → `404`
 
 ### DELETE `/api/customers/:id`
@@ -130,7 +164,7 @@ Body เหมือน POST ต้องส่งครบทุกฟิลด
 ```json
 { "count": 28 }
 ```
-- `count` ไม่บังคับ (ค่าเริ่มต้น 28)
+- `count` ไม่บังคับ (ค่าเริ่มต้น 28) ต้องเป็นจำนวนเต็ม 1–100 ไม่งั้น → `400`
 - ออเดอร์ชื่อ `ORD-LUNCH-001`... วนตามลูกค้า สุ่ม 1–3 กล่อง เวลาสั่ง 10:00–10:45
 
 ```json
@@ -214,11 +248,15 @@ RiderRoute
 - แผนเส้นทางเก็บในหน่วยความจำ ถ้า server restart แผนจะหาย
 - หลังเพิ่ม/แก้/ลบออเดอร์ ต้องเรียก `POST /api/routes/optimize` ใหม่ ไม่งั้น `/current` จะคืนแผนเก่า
 
-### ตัวอย่างลำดับการใช้งาน
-```bash
-curl -X POST http://localhost:3000/api/orders/simulate -H "Content-Type: application/json" -d '{"count":28}'
-curl -X POST http://localhost:3000/api/routes/optimize -H "Content-Type: application/json" -d '{"seed":0}'
-curl http://localhost:3000/api/routes/rider/TASK-01
+### ตัวอย่างลำดับการใช้งาน (PowerShell)
+```powershell
+$B = "http://localhost:3000/api"
+$login = Invoke-RestMethod -Method Post "$B/auth/login" -ContentType "application/json" -Body '{"username":"admin","password":"admin1234"}'
+$H = @{ Authorization = "Bearer $($login.token)" }
+
+Invoke-RestMethod -Method Post "$B/orders/simulate" -Headers $H -ContentType "application/json" -Body '{"count":28}'
+Invoke-RestMethod -Method Post "$B/routes/optimize" -Headers $H -ContentType "application/json" -Body '{"seed":0}'
+Invoke-RestMethod "$B/routes/rider/TASK-01" -Headers $H
 ```
 
 ---
@@ -230,6 +268,19 @@ curl http://localhost:3000/api/routes/rider/TASK-01
 - ผลคือข้อมูลที่เพิ่ม/แก้จะหายเป็นระยะ แล้ว server จะ seed ข้อมูลตัวอย่างใหม่ให้ ใช้สำหรับ demo ได้ แต่ไม่เหมาะกับข้อมูลจริง
 - ถ้าต้องเก็บข้อมูลถาวร ให้ย้ายไปใช้ฐานข้อมูลภายนอก เช่น Turso (SQLite บนคลาวด์), Neon/Supabase (Postgres) หรือ deploy backend บน Render/Railway ที่มี disk แทน
 - แผนเส้นทาง (`latestPlan`) เก็บในหน่วยความจำ บน Vercel อาจหายระหว่าง request ได้ ให้เรียก `POST /api/routes/optimize` ก่อนดึงแผนเสมอ
+
+### Environment Variables (ต้องตั้งก่อน deploy)
+ตั้งที่ Vercel → Project → Settings → Environment Variables แล้วกด Redeploy
+
+| ชื่อ | ค่า |
+|---|---|
+| `JWT_SECRET` | สตริงสุ่มยาวๆ สร้างด้วย `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"` |
+| `ADMIN_PASSWORD` | รหัสผ่านของ `admin` |
+| `RIDER_PASSWORD` | รหัสผ่านของ `rider01`–`rider13` |
+| `CORS_ORIGINS` | URL ของ frontend คั่นด้วย `,` เช่น `http://localhost:4200,https://my-frontend.vercel.app` |
+
+ถ้าไม่ตั้ง 3 ตัวแรก server จะไม่ยอมเริ่มทำงาน (ตอบ 500 ทุกเส้น) เพื่อไม่ให้ใช้รหัสผ่านเริ่มต้นบน production
+ดูตัวอย่างได้ที่ `server/.env.example` (ห้าม commit ไฟล์ `.env` ที่มีค่าจริง)
 
 ### สิ่งที่โค้ดรองรับแล้ว
 - `src/index.ts` มี `export default app` และเรียก `app.listen` เฉพาะตอนไม่ได้รันบน Vercel
