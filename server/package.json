@@ -2,10 +2,10 @@
   "name": "rider-routing-backend",
   "version": "1.0.0",
   "description": "Backend API for Smart Rider Route Planning",
-  "main": "dist/index.js",
+  "main": "src/index.ts",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/index.js",
+    "start": "ts-node-dev --transpile-only src/index.ts",
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts"
   },
   "dependencies": {
