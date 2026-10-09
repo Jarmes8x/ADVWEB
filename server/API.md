@@ -2,7 +2,7 @@
 
 Base URL
 - Local: `http://localhost:3000/api`
-- Vercel: `https://<project-name>.vercel.app/api`
+- Vercel: `https://pro-advweb-ef39.vercel.app/api`
 
 ทุกเส้นรับ/ส่ง JSON (`Content-Type: application/json`)
 Error ทุกเส้นมีรูปแบบ `{ "error": "ข้อความ" }` พร้อม status 400 / 404 / 500
