@@ -2,14 +2,14 @@
   "name": "rider-routing-backend",
   "version": "1.0.0",
   "description": "Backend API for Smart Rider Route Planning",
-  "main": "src/index.ts",
+  "main": "dist/server.js",
   "scripts": {
     "build": "tsc",
-    "start": "ts-node-dev --transpile-only src/index.ts",
-    "dev": "ts-node-dev --respawn --transpile-only src/index.ts"
+    "start": "node dist/server.js",
+    "dev": "ts-node-dev --respawn --transpile-only server.ts"
   },
   "dependencies": {
-    "better-sqlite3": "^11.8.1",
+    "better-sqlite3": "^12.4.1",
     "cors": "^2.8.5",
     "express": "^4.21.2",
     "jsonwebtoken": "9.0.3"
