@@ -1,1 +1,49 @@
-<router-outlet></router-outlet>
+<div class="app-layout">
+  <!-- Top Navigation Bar -->
+  <header class="top-nav">
+    <div class="nav-container">
+      <div class="brand">
+        <span class="brand-icon">🍱</span>
+        <div class="brand-text">
+          <span class="brand-title">ข้าวกล่องเดลิเวอรี่ ม.มหาสารคาม</span>
+          <span class="brand-subtitle">ระบบจัดเส้นทางและแบ่งงานไรเดอร์อัจฉริยะ (11:30 - 12:30 น.)</span>
+        </div>
+      </div>
+
+      <!-- Navigation Links -->
+      <nav class="nav-links" *ngIf="auth.user() as user">
+        <ng-container *ngIf="auth.isAdmin()">
+        <a routerLink="/routes" routerLinkActive="active" class="nav-item">
+          <span class="icon">🗺️</span> จัดเส้นทาง & แผนที่
+        </a>
+        <a routerLink="/orders" routerLinkActive="active" class="nav-item">
+          <span class="icon">📦</span> จัดการออเดอร์
+        </a>
+        <a routerLink="/customers" routerLinkActive="active" class="nav-item">
+          <span class="icon">👥</span> จัดการลูกค้า
+        </a>
+        </ng-container>
+        <a routerLink="/rider" routerLinkActive="active" class="nav-item rider-btn">
+          <span class="icon">📱</span> {{ auth.isAdmin() ? 'หน้าจอไรเดอร์ (มือถือ)' : 'ใบงานของฉัน' }}
+        </a>
+        <span class="user-badge">👤 {{ user.username }}</span>
+        <button type="button" class="nav-item logout-btn" (click)="auth.logout()">ออกจากระบบ</button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Main Content View -->
+  <main class="main-body">
+    <div class="content-wrapper">
+      <router-outlet></router-outlet>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="app-footer">
+    <p>
+      ระบบจัดส่งด่วนมื้อเที่ยง • โมเดลไรเดอร์ประจำ Fixed 13 คน (รับสูงสุด 3 ออเดอร์/คน) • ส่งในรัศมี 3 กม.
+    </p>
+  </footer>
+</div>
+

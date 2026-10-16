@@ -1,0 +1,45 @@
+<div class="login-wrapper">
+  <form class="login-card card" (ngSubmit)="submit()" novalidate>
+    <div class="login-header">
+      <span class="logo" aria-hidden="true">🍱</span>
+      <h1>เข้าสู่ระบบ</h1>
+      <p>สำหรับแอดมินร้านและไรเดอร์</p>
+    </div>
+
+    <div class="field">
+      <label for="username">ชื่อผู้ใช้</label>
+      <input
+        id="username"
+        name="username"
+        type="text"
+        autocomplete="username"
+        [(ngModel)]="username"
+        placeholder="เช่น admin หรือ rider01"
+        required
+      />
+    </div>
+
+    <div class="field">
+      <label for="password">รหัสผ่าน</label>
+      <input
+        id="password"
+        name="password"
+        type="password"
+        autocomplete="current-password"
+        [(ngModel)]="password"
+        required
+      />
+    </div>
+
+    <div *ngIf="errorMessage" class="error-banner" role="alert">
+      ⚠️ {{ errorMessage }}
+    </div>
+
+    <button type="submit" class="btn btn-primary submit-btn" [disabled]="loading">
+      {{ loading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ' }}
+    </button>
+
+    <p class="hint">ไรเดอร์ใช้ชื่อผู้ใช้ rider01 - rider13 ตามเบอร์ของตัวเอง</p>
+  </form>
+</div>
+
