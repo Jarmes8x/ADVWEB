@@ -195,3 +195,12 @@ tr.selected {
   margin-top: 20px;
 }
 
+
+.zone-tag {
+  font-size: 12px;
+  color: #9a3412;
+  background: #ffedd5;
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}

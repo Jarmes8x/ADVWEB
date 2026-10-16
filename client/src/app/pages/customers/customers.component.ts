@@ -2,7 +2,7 @@ import { Component, OnInit, AfterViewInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../services/api.service';
-import { Customer } from '../../models/types';
+import { Customer, ZONES } from '../../models/types';
 import * as L from 'leaflet';
 
 @Component({
@@ -17,6 +17,7 @@ export class CustomersComponent implements OnInit, AfterViewInit, OnDestroy {
   searchTerm: string = '';
   selectedCustomer: Customer | null = null;
   
+  readonly zones = ZONES;
   isModalOpen = false;
   editMode = false;
   formCustomer: Customer = {
@@ -136,7 +137,8 @@ export class CustomersComponent implements OnInit, AfterViewInit, OnDestroy {
       phone: '',
       address: '',
       lat: 16.2465,
-      lng: 103.2505
+      lng: 103.2505,
+      zone: 'ขามเรียง'
     };
     this.isModalOpen = true;
     this.updateTempMarker(this.formCustomer.lat, this.formCustomer.lng);

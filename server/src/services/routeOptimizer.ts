@@ -1,5 +1,8 @@
 import { Order, RoutePoint, RiderRoute, RouteOptimizationResult, Rider } from '../models/types';
 import { SHOP_LOCATION } from '../database/connection';
+import { ZONES, Zone, isZone, inferZone } from '../models/zones';
+
+const MAX_ORDERS_PER_RIDER = 3;
 
 // Haversine distance in Kilometers
 export function calculateDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -29,8 +32,9 @@ export function getEstimatedTimeStr(minutesFromStart: number): string {
 export class RouteOptimizerService {
   /**
    * Optimize routes for orders:
-   * 1. Angle & distance sorting relative to shop (Polar coordinates clustering)
-   * 2. Partition into clusters of at most 3 orders (rider limit)
+   * 1. Group orders by delivery zone (ขามเรียง / ท่าขอนยาง / หน้าป้าย)
+   * 2. Inside each zone, sort by angle & distance from shop and split into
+   *    clusters of at most 3 orders (rider limit)
    * 3. Assign to 13 available fixed riders
    * 4. Optimize each rider route with TSP (Nearest Neighbor from shop)
    * 5. Calculate cost, time, profit based on business rules:
@@ -67,41 +71,28 @@ export class RouteOptimizerService {
       };
     }
 
-    // 1. Prepare order points with angle from shop
+    // 1. Prepare order points with zone and angle from shop
     const orderItems = orders.map(o => {
       const lat = o.lat ?? shop.lat;
       const lng = o.lng ?? shop.lng;
-      const dLat = lat - shop.lat;
-      const dLng = lng - shop.lng;
-      // Angle in radians [-PI, PI] shifted by seed if recalculating
-      let angle = Math.atan2(dLat, dLng) + (strategySeed * 0.15);
+      const zone: Zone = isZone(o.zone) ? o.zone : inferZone(lat, lng, o.customerAddress);
+      // Angle is only used to order stops inside a zone; seed rotates the start point
+      const angle = Math.atan2(lat - shop.lat, lng - shop.lng) + (strategySeed * 0.15);
       const distFromShop = calculateDistanceKm(shop.lat, shop.lng, lat, lng);
-      return {
-        order: o,
-        lat,
-        lng,
-        angle,
-        distFromShop
-      };
+      return { order: o, lat, lng, zone, angle, distFromShop };
     });
+    type OrderItem = typeof orderItems[number];
 
-    // Sort radially around shop to naturally cluster nearby orders in sectors
-    orderItems.sort((a, b) => a.angle - b.angle || a.distFromShop - b.distFromShop);
-
-    // Group into clusters of max 3 orders
-    const clusters: (typeof orderItems)[] = [];
-    let currentCluster: typeof orderItems = [];
-
-    for (const item of orderItems) {
-      if (currentCluster.length < 3) {
-        currentCluster.push(item);
-      } else {
-        clusters.push(currentCluster);
-        currentCluster = [item];
+    // 2. Group by zone, then split each zone into clusters of max 3 orders.
+    //    A rider never crosses into another zone.
+    const clusters: { zone: Zone; items: OrderItem[] }[] = [];
+    for (const zone of ZONES) {
+      const inZone = orderItems
+        .filter(item => item.zone === zone)
+        .sort((a, b) => a.angle - b.angle || a.distFromShop - b.distFromShop);
+      for (let i = 0; i < inZone.length; i += MAX_ORDERS_PER_RIDER) {
+        clusters.push({ zone, items: inZone.slice(i, i + MAX_ORDERS_PER_RIDER) });
       }
-    }
-    if (currentCluster.length > 0) {
-      clusters.push(currentCluster);
     }
 
     // Available active riders (up to 13)
@@ -110,7 +101,7 @@ export class RouteOptimizerService {
 
     // Assign clusters to riders
     for (let i = 0; i < clusters.length; i++) {
-      const cluster = clusters[i];
+      const { zone, items: cluster } = clusters[i];
       const rider = activeRiders[i % activeRiders.length];
       const riderColor = rider.color;
 
@@ -212,6 +203,7 @@ export class RouteOptimizerService {
         riderName: rider.name,
         riderPhone: rider.phone,
         color: riderColor,
+        zone,
         jobCode: `TASK-${rider.id.toString().padStart(2, '0')}`,
         totalBoxes,
         orderCount: orderedOrders.length,

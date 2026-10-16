@@ -27,6 +27,7 @@ routingRouter.post('/optimize', requireRole('admin'), (req, res) => {
         c.name as customerName,
         c.phone as customerPhone,
         c.address as customerAddress,
+        c.zone,
         c.lat,
         c.lng
       FROM orders o
@@ -77,6 +78,7 @@ routingRouter.get('/current', requireRole('admin'), (req, res) => {
           c.name as customerName,
           c.phone as customerPhone,
           c.address as customerAddress,
+        c.zone,
           c.lat,
           c.lng
         FROM orders o
@@ -127,6 +129,7 @@ routingRouter.get('/rider/:jobCodeOrId', (req, res) => {
           c.name as customerName,
           c.phone as customerPhone,
           c.address as customerAddress,
+        c.zone,
           c.lat,
           c.lng
         FROM orders o

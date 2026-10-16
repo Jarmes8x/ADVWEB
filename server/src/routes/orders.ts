@@ -21,6 +21,7 @@ orderRouter.get('/', (req, res) => {
         c.name as customerName,
         c.phone as customerPhone,
         c.address as customerAddress,
+        c.zone,
         c.lat,
         c.lng
       FROM orders o
@@ -51,7 +52,7 @@ orderRouter.post('/', (req, res) => {
 
     const newOrder = db.prepare(`
       SELECT 
-        o.*, c.name as customerName, c.phone as customerPhone, c.address as customerAddress, c.lat, c.lng
+        o.*, c.name as customerName, c.phone as customerPhone, c.address as customerAddress, c.zone, c.lat, c.lng
       FROM orders o
       JOIN customers c ON o.customerId = c.id
       WHERE o.id = ?
@@ -87,7 +88,7 @@ orderRouter.put('/:id', (req, res) => {
 
     const updated = db.prepare(`
       SELECT 
-        o.*, c.name as customerName, c.phone as customerPhone, c.address as customerAddress, c.lat, c.lng
+        o.*, c.name as customerName, c.phone as customerPhone, c.address as customerAddress, c.zone, c.lat, c.lng
       FROM orders o
       JOIN customers c ON o.customerId = c.id
       WHERE o.id = ?
@@ -116,7 +117,10 @@ orderRouter.delete('/:id', (req, res) => {
 orderRouter.post('/simulate', (req, res) => {
   try {
     const MAX_SIMULATED_ORDERS = 100;
-    const count = req.body?.count === undefined ? 28 : Number(req.body.count); // Default 28 orders for lunch rush
+    // No count given -> random 28-35 orders (normal lunch volume)
+    const count = req.body?.count === undefined
+      ? 28 + Math.floor(Math.random() * 8)
+      : Number(req.body.count);
     if (!Number.isInteger(count) || count < 1 || count > MAX_SIMULATED_ORDERS) {
       return res.status(400).json({ error: `count must be an integer between 1 and ${MAX_SIMULATED_ORDERS}` });
     }
@@ -134,25 +138,37 @@ orderRouter.post('/simulate', (req, res) => {
       VALUES (?, ?, ?, ?, 'pending')
     `);
 
+    // Shuffle (Fisher-Yates) so each run picks different customers.
+    // A customer orders at most once unless count exceeds the customer list.
+    const shuffled = [...customers];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+
+    // Random boxes (1-3) and order time (10:00-10:45), sorted by time so
+    // order numbers follow the order the orders came in
+    const simulated = Array.from({ length: count }, (_, i) => ({
+      customerId: shuffled[i % shuffled.length].id,
+      boxes: Math.floor(Math.random() * 3) + 1,
+      timeMinute: 10 * 60 + Math.floor(Math.random() * 46)
+    })).sort((a, b) => a.timeMinute - b.timeMinute);
+
     const seedSimulated = db.transaction(() => {
-      for (let i = 0; i < count; i++) {
-        const randomCustomer = customers[i % customers.length];
-        // 1 to 3 boxes per order
-        const boxes = Math.floor(Math.random() * 3) + 1;
-        const timeMinute = 10 * 60 + Math.floor(Math.random() * 45); // 10:00 - 10:45 AM
-        const hour = Math.floor(timeMinute / 60);
-        const min = timeMinute % 60;
+      simulated.forEach((o, i) => {
+        const hour = Math.floor(o.timeMinute / 60);
+        const min = o.timeMinute % 60;
         const timeStr = `${hour.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}:00`;
         const orderNum = `ORD-LUNCH-${(i + 1).toString().padStart(3, '0')}`;
-        insertOrder.run(orderNum, randomCustomer.id, boxes, timeStr);
-      }
+        insertOrder.run(orderNum, o.customerId, o.boxes, timeStr);
+      });
     });
 
     seedSimulated();
 
     const orders = db.prepare(`
       SELECT 
-        o.*, c.name as customerName, c.phone as customerPhone, c.address as customerAddress, c.lat, c.lng
+        o.*, c.name as customerName, c.phone as customerPhone, c.address as customerAddress, c.zone, c.lat, c.lng
       FROM orders o
       JOIN customers c ON o.customerId = c.id
       ORDER BY o.id ASC

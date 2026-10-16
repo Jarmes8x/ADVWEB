@@ -106,7 +106,7 @@ export class OrdersComponent implements OnInit {
     }
   }
 
-  simulateOrders(count: number) {
+  simulateOrders(count?: number) {
     this.api.simulateOrders(count).subscribe(() => {
       this.loadOrders();
     });

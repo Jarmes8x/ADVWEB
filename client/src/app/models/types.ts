@@ -1,3 +1,7 @@
+// Delivery zones (must match server/src/models/zones.ts)
+export const ZONES = ['ขามเรียง', 'ท่าขอนยาง', 'หน้าป้าย'] as const;
+export type Zone = typeof ZONES[number];
+
 export interface Customer {
   id?: number;
   name: string;
@@ -5,6 +9,7 @@ export interface Customer {
   address: string;
   lat: number;
   lng: number;
+  zone?: Zone;
 }
 
 export interface Order {
@@ -14,6 +19,7 @@ export interface Order {
   customerName?: string;
   customerPhone?: string;
   customerAddress?: string;
+  zone?: Zone;
   lat?: number;
   lng?: number;
   boxCount: number;
@@ -52,6 +58,7 @@ export interface RiderRoute {
   riderName: string;
   riderPhone: string;
   color: string;
+  zone: Zone;
   jobCode: string;
   totalBoxes: number;
   orderCount: number;

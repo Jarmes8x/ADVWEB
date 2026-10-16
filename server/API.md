@@ -164,7 +164,8 @@ Body เหมือน POST ต้องส่งครบทุกฟิลด
 ```json
 { "count": 28 }
 ```
-- `count` ไม่บังคับ (ค่าเริ่มต้น 28) ต้องเป็นจำนวนเต็ม 1–100 ไม่งั้น → `400`
+- `count` ไม่บังคับ ถ้าไม่ส่ง ระบบสุ่ม 28–35 รายการ ถ้าส่งต้องเป็นจำนวนเต็ม 1–100 ไม่งั้น → `400`
+- สุ่มลูกค้าไม่ซ้ำกันในแต่ละรอบ (ยกเว้น count มากกว่าจำนวนลูกค้า)
 - ออเดอร์ชื่อ `ORD-LUNCH-001`... วนตามลูกค้า สุ่ม 1–3 กล่อง เวลาสั่ง 10:00–10:45
 
 ```json
@@ -254,7 +255,7 @@ $B = "http://localhost:3000/api"
 $login = Invoke-RestMethod -Method Post "$B/auth/login" -ContentType "application/json" -Body '{"username":"admin","password":"admin1234"}'
 $H = @{ Authorization = "Bearer $($login.token)" }
 
-Invoke-RestMethod -Method Post "$B/orders/simulate" -Headers $H -ContentType "application/json" -Body '{"count":28}'
+Invoke-RestMethod -Method Post "$B/orders/simulate" -Headers $H -ContentType "application/json" -Body '{}'
 Invoke-RestMethod -Method Post "$B/routes/optimize" -Headers $H -ContentType "application/json" -Body '{"seed":0}'
 Invoke-RestMethod "$B/routes/rider/TASK-01" -Headers $H
 ```

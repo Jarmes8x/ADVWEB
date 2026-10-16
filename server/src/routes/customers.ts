@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { sendServerError } from '../middleware/auth';
 import { db } from '../database/connection';
 import { Customer } from '../models/types';
+import { isZone, inferZone } from '../models/zones';
 
 export const customerRouter = Router();
 
@@ -31,14 +32,18 @@ customerRouter.get('/:id', (req, res) => {
 // CREATE customer
 customerRouter.post('/', (req, res) => {
   try {
-    const { name, phone, address, lat, lng }: Customer = req.body;
+    const { name, phone, address, lat, lng, zone }: Customer = req.body;
     if (!name || !phone || !address || !Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng))) {
       return res.status(400).json({ error: 'Missing or invalid customer fields' });
     }
+    if (zone !== undefined && !isZone(zone)) {
+      return res.status(400).json({ error: 'zone must be one of: ขามเรียง, ท่าขอนยาง, หน้าป้าย' });
+    }
+    const finalZone = zone ?? inferZone(Number(lat), Number(lng), address);
     const result = db.prepare(`
-      INSERT INTO customers (name, phone, address, lat, lng)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(name, phone, address, Number(lat), Number(lng));
+      INSERT INTO customers (name, phone, address, lat, lng, zone)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(name, phone, address, Number(lat), Number(lng), finalZone);
 
     const newCustomer = db.prepare('SELECT * FROM customers WHERE id = ?').get(result.lastInsertRowid);
     res.status(201).json(newCustomer);
@@ -50,15 +55,19 @@ customerRouter.post('/', (req, res) => {
 // UPDATE customer
 customerRouter.put('/:id', (req, res) => {
   try {
-    const { name, phone, address, lat, lng }: Customer = req.body;
+    const { name, phone, address, lat, lng, zone }: Customer = req.body;
     if (!name || !phone || !address || !Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng))) {
       return res.status(400).json({ error: 'Missing or invalid customer fields' });
     }
+    if (zone !== undefined && !isZone(zone)) {
+      return res.status(400).json({ error: 'zone must be one of: ขามเรียง, ท่าขอนยาง, หน้าป้าย' });
+    }
+    const finalZone = zone ?? inferZone(Number(lat), Number(lng), address);
     const result = db.prepare(`
       UPDATE customers
-      SET name = ?, phone = ?, address = ?, lat = ?, lng = ?
+      SET name = ?, phone = ?, address = ?, lat = ?, lng = ?, zone = ?
       WHERE id = ?
-    `).run(name, phone, address, Number(lat), Number(lng), req.params.id);
+    `).run(name, phone, address, Number(lat), Number(lng), finalZone, req.params.id);
 
     if (result.changes === 0) {
       return res.status(404).json({ error: 'Customer not found' });

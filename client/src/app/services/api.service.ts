@@ -50,7 +50,8 @@ export class ApiService {
     return this.http.delete<{ success: boolean }>(`${this.baseUrl}/orders/${id}`);
   }
 
-  simulateOrders(count: number = 28): Observable<{ message: string; orders: Order[] }> {
+  // count omitted -> server picks a random 28-35 orders
+  simulateOrders(count?: number): Observable<{ message: string; orders: Order[] }> {
     return this.http.post<{ message: string; orders: Order[] }>(`${this.baseUrl}/orders/simulate`, { count });
   }
 

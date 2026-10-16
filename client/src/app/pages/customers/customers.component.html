@@ -27,6 +27,7 @@
               <th>ชื่อ-นามสกุล</th>
               <th>เบอร์โทรศัพท์</th>
               <th>สถานที่ / หอพัก</th>
+              <th>โซน</th>
               <th>พิกัด (Lat, Lng)</th>
               <th>จัดการ</th>
             </tr>
@@ -37,6 +38,7 @@
               <td class="font-bold">{{ c.name }}</td>
               <td><a [href]="'tel:' + c.phone" class="phone-link">📞 {{ c.phone }}</a></td>
               <td class="address-cell">{{ c.address }}</td>
+              <td><span class="zone-tag">{{ c.zone }}</span></td>
               <td>
                 <button class="coord-btn" (click)="focusOnMap(c)">
                   📍 {{ c.lat.toFixed(4) }}, {{ c.lng.toFixed(4) }}
@@ -86,6 +88,12 @@
         <div class="form-group">
           <label>ที่อยู่ / จุดสังเกต <span class="req">*</span></label>
           <textarea [(ngModel)]="formCustomer.address" name="address" required rows="2" placeholder="เช่น หอพักเอสเพลส ซอยวุ่นวาย ขามเรียง"></textarea>
+        </div>
+        <div class="form-group">
+          <label for="customer-zone">โซนจัดส่ง <span class="req">*</span></label>
+          <select id="customer-zone" [(ngModel)]="formCustomer.zone" name="zone" required>
+            <option *ngFor="let z of zones" [value]="z">{{ z }}</option>
+          </select>
         </div>
         <div class="coords-row">
           <div class="form-group">

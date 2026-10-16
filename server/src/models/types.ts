@@ -1,3 +1,5 @@
+import { Zone } from './zones';
+
 export interface Customer {
   id?: number;
   name: string;
@@ -5,6 +7,7 @@ export interface Customer {
   address: string;
   lat: number;
   lng: number;
+  zone?: Zone;
 }
 
 export interface Order {
@@ -14,6 +17,7 @@ export interface Order {
   customerName?: string;
   customerPhone?: string;
   customerAddress?: string;
+  zone?: Zone;
   lat?: number;
   lng?: number;
   boxCount: number;
@@ -52,6 +56,7 @@ export interface RiderRoute {
   riderName: string;
   riderPhone: string;
   color: string;
+  zone: Zone; // delivery zone this route covers
   jobCode: string; // e.g. "RD-01" or date based
   totalBoxes: number;
   orderCount: number;
