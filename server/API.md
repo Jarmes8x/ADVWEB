@@ -5,8 +5,9 @@ Base URL
 - Vercel: `https://pro-advweb-ef39.vercel.app/api`
 
 ทุกเส้นรับ/ส่ง JSON (`Content-Type: application/json`)
-Error ทุกเส้นมีรูปแบบ `{ "error": "ข้อความ" }` พร้อม status 400 / 401 / 403 / 404 / 500
+Error ทุกเส้นมีรูปแบบ `{ "error": "ข้อความ" }` พร้อม status 400 / 401 / 403 / 404 / 500 / 503
 (500 จะตอบข้อความกลางๆ `เกิดข้อผิดพลาดภายในระบบ` รายละเอียดจริงดูได้ใน log ของ server)
+- `503 {"error":"Database initialization failed"}` = DB ยังไม่พร้อม/เชื่อมต่อไม่ได้ ระหว่าง cold start (serverless จะ retry init ให้ใน request ถัดไปอัตโนมัติ)
 
 ## การยืนยันตัวตน (JWT)
 
@@ -79,8 +80,9 @@ Authorization: Bearer <token>
 
 ข้อมูลลูกค้า
 ```json
-{ "id": 1, "name": "สมชาย", "phone": "0812345678", "address": "หอพัก A ขามเรียง", "lat": 16.2468, "lng": 103.2521 }
+{ "id": 1, "name": "สมชาย", "phone": "0812345678", "address": "หอพัก A ขามเรียง", "lat": 16.2468, "lng": 103.2521, "zone": "ขามเรียง" }
 ```
+`zone`: `ขามเรียง` / `ท่าขอนยาง` / `หน้าป้าย` (ใช้แบ่งพื้นที่ส่งให้ไรเดอร์)
 
 ### GET `/api/customers`
 คืน array ของลูกค้า เรียง id จากใหม่ไปเก่า
@@ -89,14 +91,17 @@ Authorization: Bearer <token>
 คืนลูกค้า 1 คน ถ้าไม่พบ → `404 Customer not found`
 
 ### POST `/api/customers`
-Body (บังคับทุกฟิลด์ ถ้าขาด → `400`)
+Body (บังคับทุกฟิลด์ยกเว้น `zone` ถ้าขาด → `400`)
 ```json
 { "name": "สมชาย", "phone": "0812345678", "address": "หอพัก A ขามเรียง", "lat": 16.2468, "lng": 103.2521 }
 ```
-ตอบ `201` พร้อมลูกค้าที่สร้าง (มี `id`)
+- `zone` ไม่บังคับ ถ้าไม่ส่ง server เดาให้จากที่อยู่/pickติกัด (ค่าที่ส่งต้องตรง 3 โซน ไม่งั้น → `400`)
+
+ตอบ `201` พร้อมลูกค้าที่สร้าง (มี `id` และ `zone`)
 
 ### PUT `/api/customers/:id`
-Body เหมือน POST ต้องส่งครบทุกฟิลด์ ถ้าขาดหรือ lat/lng ไม่ใช่ตัวเลข → `400`
+Full replacement — Body เหมือน POST ต้องส่งครบทุกฟิลด์ ถ้าขาดหรือ lat/lng ไม่ใช่ตัวเลข → `400` (row จะไม่ถูกแก้)
+`zone` ไม่ส่งได้ — server เดาให้เหมือน POST
 ตอบลูกค้าที่แก้แล้ว ถ้าไม่พบ → `404`
 
 ### DELETE `/api/customers/:id`
@@ -123,6 +128,7 @@ Body เหมือน POST ต้องส่งครบทุกฟิลด
   "customerName": "สมชาย",
   "customerPhone": "0812345678",
   "customerAddress": "หอพัก A ขามเรียง",
+  "zone": "ขามเรียง",
   "lat": 16.2468,
   "lng": 103.2521
 }
@@ -136,8 +142,8 @@ Body เหมือน POST ต้องส่งครบทุกฟิลด
 ```json
 { "customerId": 1, "boxCount": 2 }
 ```
-- `boxCount` ต้องเป็น 1–3 ถ้าไม่ใช่ → `400`
-- server สร้าง `orderNumber`, `orderTime` (เวลาปัจจุบัน) และ `status = pending` ให้
+- `boxCount` ต้องเป็น 1–3 ถ้าไม่ใช่ → `400` เช่นเดียวกับ `customerId` ที่ไม่มีจริง
+- server สร้าง `orderNumber` (จาก DB sequence — ปลอดภัยแม้สร้างพร้อมกันหลาย request), `orderTime` (เวลาปัจจุบัน) และ `status = pending` ให้
 
 ตอบ `201` พร้อมออเดอร์ที่สร้าง
 
@@ -167,6 +173,7 @@ Body เหมือน POST ต้องส่งครบทุกฟิลด
 - `count` ไม่บังคับ ถ้าไม่ส่ง ระบบสุ่ม 28–35 รายการ ถ้าส่งต้องเป็นจำนวนเต็ม 1–100 ไม่งั้น → `400`
 - สุ่มลูกค้าไม่ซ้ำกันในแต่ละรอบ (ยกเว้น count มากกว่าจำนวนลูกค้า)
 - ออเดอร์ชื่อ `ORD-LUNCH-001`... วนตามลูกค้า สุ่ม 1–3 กล่อง เวลาสั่ง 10:00–10:45
+- request พร้อมกันหลายตัวจะถูก serialize ด้วย advisory lock — ทุก request สำเร็จ ผลลัพธ์คือ simulation ชุดสุดท้าย (last-writer-wins)
 
 ```json
 { "message": "Simulated 28 lunch orders successfully!", "orders": [ ... ] }
@@ -264,10 +271,11 @@ Invoke-RestMethod "$B/routes/rider/TASK-01" -Headers $H
 
 ## Deploy Backend บน Vercel
 
-### ข้อจำกัดที่ต้องรู้ก่อน
-- Backend ใช้ SQLite (ไฟล์) แต่ Vercel เขียนไฟล์ได้เฉพาะ `/tmp` และข้อมูลใน `/tmp` จะหายเมื่อ function ถูกปิด/เปิดใหม่ หรือเมื่อ deploy ใหม่
-- ผลคือข้อมูลที่เพิ่ม/แก้จะหายเป็นระยะ แล้ว server จะ seed ข้อมูลตัวอย่างใหม่ให้ ใช้สำหรับ demo ได้ แต่ไม่เหมาะกับข้อมูลจริง
-- ถ้าต้องเก็บข้อมูลถาวร ให้ย้ายไปใช้ฐานข้อมูลภายนอก เช่น Turso (SQLite บนคลาวด์), Neon/Supabase (Postgres) หรือ deploy backend บน Render/Railway ที่มี disk แทน
+### ฐานข้อมูล (Neon PostgreSQL)
+- Backend ใช้ **PostgreSQL บน Neon** ผ่าน driver `pg` (node-postgres) — ข้อมูลไม่หายเมื่อ function รีสตาร์ท (แก้ปัญหา `/tmp` ของ SQLite เดิม)
+- `DATABASE_URL` — connection string แบบ **pooled** (host มี `-pooler`) ใช้ตอน runtime
+- `DATABASE_URL_UNPOOLED` — connection string แบบ direct สำหรับรัน migration (`npm run migrate`) จากเครื่อง/CI
+- รายละเอียดเต็มอยู่ใน `DATABASE_MIGRATION.md` ที่ root ของ repo
 - แผนเส้นทาง (`latestPlan`) เก็บในหน่วยความจำ บน Vercel อาจหายระหว่าง request ได้ ให้เรียก `POST /api/routes/optimize` ก่อนดึงแผนเสมอ
 
 ### Environment Variables (ต้องตั้งก่อน deploy)
@@ -279,13 +287,17 @@ Invoke-RestMethod "$B/routes/rider/TASK-01" -Headers $H
 | `ADMIN_PASSWORD` | รหัสผ่านของ `admin` |
 | `RIDER_PASSWORD` | รหัสผ่านของ `rider01`–`rider13` |
 | `CORS_ORIGINS` | URL ของ frontend คั่นด้วย `,` เช่น `http://localhost:4200,https://my-frontend.vercel.app` |
+| `DATABASE_URL` | Neon pooled connection string (`postgresql://...-pooler...neon.tech/neondb?sslmode=require`) |
+| `DATABASE_URL_UNPOOLED` | Neon direct connection string (สำหรับ `npm run migrate` จาก CI/เครื่อง) |
 
-ถ้าไม่ตั้ง 3 ตัวแรก server จะไม่ยอมเริ่มทำงาน (ตอบ 500 ทุกเส้น) เพื่อไม่ให้ใช้รหัสผ่านเริ่มต้นบน production
+ถ้าไม่ตั้ง 3 ตัวแรก server จะไม่ยอมเริ่มทำงาน เพื่อไม่ให้ใช้รหัสผ่านเริ่มต้นบน production
+ถ้า `DATABASE_URL` หาย → ทุกเส้นตอบ `503 {"error":"Database initialization failed"}`
 ดูตัวอย่างได้ที่ `server/.env.example` (ห้าม commit ไฟล์ `.env` ที่มีค่าจริง)
 
 ### สิ่งที่โค้ดรองรับแล้ว
 - `src/index.ts` มี `export default app` และเรียก `app.listen` เฉพาะตอนไม่ได้รันบน Vercel
-- `src/database/connection.ts` ใช้ `/tmp/database.sqlite` เมื่อรันบน Vercel (ตัวแปร `VERCEL` ถูกตั้งให้อัตโนมัติ)
+- ทุก request บน Vercel จะรอ `initDatabase()` (สร้างตาราง + seed ถ้ายังว่าง) ก่อนตอบเสมอ — ล้มเหลวจะตอบ 503 ไม่ใช่ crash
+- Cold start พร้อมกันหลายตัวปลอดภัยด้วย `pg_advisory_xact_lock` — ไม่มี seed ชนกัน
 - Vercel หา entrypoint `src/index.ts` เองได้ ไม่ต้องมี `vercel.json`
 
 ### วิธีที่ 1: ผ่านหน้าเว็บ Vercel (แนะนำ)
@@ -317,5 +329,5 @@ private baseUrl = 'https://<project-name>.vercel.app/api';
 ```
 
 ### ถ้า deploy ไม่ผ่าน
-- `better-sqlite3` ต้อง compile สำหรับ Linux ตอน build บน Vercel ถ้า build log ขึ้น error เกี่ยวกับ `better-sqlite3` / `node-gyp` ให้ตั้ง Node.js Version เป็น 22.x ใน Project Settings → Build and Deployment
-- ถ้าเปิดแล้วได้ 500 ให้ดู error ที่ Project → Logs
+- ถ้าเปิดแล้วได้ 500/503 ให้ดู error ที่ Project → Logs — ส่วนใหญ่คือ `DATABASE_URL` ยังไม่ได้ตั้งค่าหรือ sslmode ไม่ถูกต้อง
+- ไม่มี native dependency แล้ว (`pg` เป็น pure JavaScript) build บน Vercel ใช้ Node เวอร์ชันปกติได้เลย

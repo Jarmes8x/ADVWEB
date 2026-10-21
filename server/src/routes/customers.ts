@@ -1,36 +1,40 @@
 import { Router } from 'express';
 import { sendServerError } from '../middleware/auth';
-import { db } from '../database/connection';
+import { query, transaction } from '../database/connection';
 import { Customer } from '../models/types';
 import { isZone, inferZone } from '../models/zones';
 
 export const customerRouter = Router();
 
 // GET all customers
-customerRouter.get('/', (req, res) => {
+customerRouter.get('/', async (req, res) => {
   try {
-    const customers = db.prepare('SELECT * FROM customers ORDER BY id DESC').all();
-    res.json(customers);
+    const { rows } = await query('SELECT * FROM customers ORDER BY id DESC');
+    res.json(rows);
   } catch (error) {
     sendServerError(res, error);
   }
 });
 
 // GET single customer
-customerRouter.get('/:id', (req, res) => {
+customerRouter.get('/:id', async (req, res) => {
   try {
-    const customer = db.prepare('SELECT * FROM customers WHERE id = ?').get(req.params.id);
-    if (!customer) {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
       return res.status(404).json({ error: 'Customer not found' });
     }
-    res.json(customer);
+    const { rows } = await query('SELECT * FROM customers WHERE id = $1', [id]);
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Customer not found' });
+    }
+    res.json(rows[0]);
   } catch (error) {
     sendServerError(res, error);
   }
 });
 
 // CREATE customer
-customerRouter.post('/', (req, res) => {
+customerRouter.post('/', async (req, res) => {
   try {
     const { name, phone, address, lat, lng, zone }: Customer = req.body;
     if (!name || !phone || !address || !Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng))) {
@@ -40,51 +44,60 @@ customerRouter.post('/', (req, res) => {
       return res.status(400).json({ error: 'zone must be one of: ขามเรียง, ท่าขอนยาง, หน้าป้าย' });
     }
     const finalZone = zone ?? inferZone(Number(lat), Number(lng), address);
-    const result = db.prepare(`
-      INSERT INTO customers (name, phone, address, lat, lng, zone)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(name, phone, address, Number(lat), Number(lng), finalZone);
-
-    const newCustomer = db.prepare('SELECT * FROM customers WHERE id = ?').get(result.lastInsertRowid);
-    res.status(201).json(newCustomer);
+    const { rows } = await query(
+      `INSERT INTO customers (name, phone, address, lat, lng, zone)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [name, phone, address, Number(lat), Number(lng), finalZone]
+    );
+    res.status(201).json(rows[0]);
   } catch (error) {
     sendServerError(res, error);
   }
 });
 
-// UPDATE customer
-customerRouter.put('/:id', (req, res) => {
+// UPDATE customer (full replacement — every required field must be sent)
+customerRouter.put('/:id', async (req, res) => {
   try {
     const { name, phone, address, lat, lng, zone }: Customer = req.body;
-    if (!name || !phone || !address || !Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng))) {
-      return res.status(400).json({ error: 'Missing or invalid customer fields' });
-    }
-    if (zone !== undefined && !isZone(zone)) {
-      return res.status(400).json({ error: 'zone must be one of: ขามเรียง, ท่าขอนยาง, หน้าป้าย' });
-    }
-    const finalZone = zone ?? inferZone(Number(lat), Number(lng), address);
-    const result = db.prepare(`
-      UPDATE customers
-      SET name = ?, phone = ?, address = ?, lat = ?, lng = ?, zone = ?
-      WHERE id = ?
-    `).run(name, phone, address, Number(lat), Number(lng), finalZone, req.params.id);
-
-    if (result.changes === 0) {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
       return res.status(404).json({ error: 'Customer not found' });
     }
-    const updated = db.prepare('SELECT * FROM customers WHERE id = ?').get(req.params.id);
-    res.json(updated);
+    if (!name || !phone || !address || !Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng))) {
+      return res.status(400).json({ error: 'Missing or invalid customer fields' });
+    }
+    if (zone !== undefined && !isZone(zone)) {
+      return res.status(400).json({ error: 'zone must be one of: ขามเรียง, ท่าขอนยาง, หน้าป้าย' });
+    }
+    const finalZone = zone ?? inferZone(Number(lat), Number(lng), address);
+    const { rows } = await query(
+      `UPDATE customers
+       SET name = $1, phone = $2, address = $3, lat = $4, lng = $5, zone = $6
+       WHERE id = $7 RETURNING *`,
+      [name, phone, address, Number(lat), Number(lng), finalZone, id]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Customer not found' });
+    }
+    res.json(rows[0]);
   } catch (error) {
     sendServerError(res, error);
   }
 });
 
-// DELETE customer
-customerRouter.delete('/:id', (req, res) => {
+// DELETE customer (cascades their orders atomically)
+customerRouter.delete('/:id', async (req, res) => {
   try {
-    db.prepare('DELETE FROM orders WHERE customerId = ?').run(req.params.id);
-    const result = db.prepare('DELETE FROM customers WHERE id = ?').run(req.params.id);
-    if (result.changes === 0) {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+      return res.status(404).json({ error: 'Customer not found' });
+    }
+    const deleted = await transaction(async (client) => {
+      await client.query('DELETE FROM orders WHERE "customerId" = $1', [id]);
+      const { rowCount } = await client.query('DELETE FROM customers WHERE id = $1', [id]);
+      return rowCount;
+    });
+    if (!deleted) {
       return res.status(404).json({ error: 'Customer not found' });
     }
     res.json({ success: true, message: 'Customer deleted' });

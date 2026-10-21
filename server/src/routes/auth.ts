@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { db } from '../database/connection';
+import { query } from '../database/connection';
 import { requireAuth, signToken, verifyPassword, sendServerError, AuthUser, Role } from '../middleware/auth';
 
 export const authRouter = Router();
@@ -13,14 +13,15 @@ interface UserRow {
 }
 
 // POST /api/auth/login - Exchange username/password for a JWT
-authRouter.post('/login', (req, res) => {
+authRouter.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body ?? {};
     if (typeof username !== 'string' || typeof password !== 'string' || !username || !password) {
       return res.status(400).json({ error: 'กรุณากรอกชื่อผู้ใช้และรหัสผ่าน' });
     }
 
-    const row = db.prepare('SELECT * FROM users WHERE username = ?').get(username.trim()) as UserRow | undefined;
+    const { rows } = await query('SELECT * FROM users WHERE username = $1', [username.trim()]);
+    const row = rows[0] as UserRow | undefined;
     // Same message for unknown user and wrong password, so usernames can't be probed
     if (!row || !verifyPassword(password, row.passwordHash)) {
       return res.status(401).json({ error: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' });

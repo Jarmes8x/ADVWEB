@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { db, SHOP_LOCATION } from '../database/connection';
+import { query, transaction, SHOP_LOCATION } from '../database/connection';
 import { RouteOptimizerService } from '../services/routeOptimizer';
 import { Order, Rider } from '../models/types';
 import { requireRole, canAccessRider, sendServerError } from '../middleware/auth';
@@ -10,51 +10,53 @@ const optimizer = new RouteOptimizerService();
 // State caching the latest plan
 let latestPlan: any = null;
 
+const ORDER_WITH_CUSTOMER = `
+  SELECT
+    o.id,
+    o."orderNumber",
+    o."customerId",
+    o."boxCount",
+    o."orderTime",
+    o.status,
+    c.name as "customerName",
+    c.phone as "customerPhone",
+    c.address as "customerAddress",
+    c.zone,
+    c.lat,
+    c.lng
+  FROM orders o
+  JOIN customers c ON o."customerId" = c.id
+  ORDER BY o.id ASC
+`;
+
+async function loadOrdersAndRiders(): Promise<{ orders: Order[]; riders: Rider[] }> {
+  const { rows: orders } = await query<Order>(ORDER_WITH_CUSTOMER);
+  const { rows: riders } = await query<Rider>('SELECT * FROM riders ORDER BY id ASC');
+  return { orders, riders };
+}
+
 // POST /api/routes/optimize - Run or re-calculate route optimization
-routingRouter.post('/optimize', requireRole('admin'), (req, res) => {
+routingRouter.post('/optimize', requireRole('admin'), async (req, res) => {
   try {
-    const seed = Number(req.body.seed) || 0;
-
-    // Fetch all current orders with customer coordinates
-    const orders = db.prepare(`
-      SELECT 
-        o.id,
-        o.orderNumber,
-        o.customerId,
-        o.boxCount,
-        o.orderTime,
-        o.status,
-        c.name as customerName,
-        c.phone as customerPhone,
-        c.address as customerAddress,
-        c.zone,
-        c.lat,
-        c.lng
-      FROM orders o
-      JOIN customers c ON o.customerId = c.id
-      ORDER BY o.id ASC
-    `).all() as Order[];
-
-    const riders = db.prepare('SELECT * FROM riders ORDER BY id ASC').all() as Rider[];
+    const seed = Number(req.body?.seed) || 0;
+    const { orders, riders } = await loadOrdersAndRiders();
 
     const plan = optimizer.optimize(orders, riders, SHOP_LOCATION, seed);
     latestPlan = plan;
 
     // Persist assignments back to orders table
-    const updateOrder = db.prepare(`
-      UPDATE orders
-      SET assignedRiderId = ?, deliverySequence = ?, status = 'assigned'
-      WHERE id = ?
-    `);
-
-    const persistAssignments = db.transaction(() => {
+    await transaction(async (client) => {
       for (const route of plan.routes) {
         for (const ord of route.orders) {
-          updateOrder.run(route.riderId, ord.deliverySequence, ord.id);
+          await client.query(
+            `UPDATE orders
+             SET "assignedRiderId" = $1, "deliverySequence" = $2, status = 'assigned'
+             WHERE id = $3`,
+            [route.riderId, ord.deliverySequence, ord.id]
+          );
         }
       }
     });
-    persistAssignments();
 
     res.json(plan);
   } catch (error) {
@@ -63,30 +65,11 @@ routingRouter.post('/optimize', requireRole('admin'), (req, res) => {
 });
 
 // GET /api/routes/current - Get current optimized plan
-routingRouter.get('/current', requireRole('admin'), (req, res) => {
+routingRouter.get('/current', requireRole('admin'), async (req, res) => {
   try {
     if (!latestPlan) {
       // Generate initial plan automatically if not generated yet
-      const orders = db.prepare(`
-        SELECT 
-          o.id,
-          o.orderNumber,
-          o.customerId,
-          o.boxCount,
-          o.orderTime,
-          o.status,
-          c.name as customerName,
-          c.phone as customerPhone,
-          c.address as customerAddress,
-        c.zone,
-          c.lat,
-          c.lng
-        FROM orders o
-        JOIN customers c ON o.customerId = c.id
-        ORDER BY o.id ASC
-      `).all() as Order[];
-
-      const riders = db.prepare('SELECT * FROM riders ORDER BY id ASC').all() as Rider[];
+      const { orders, riders } = await loadOrdersAndRiders();
       latestPlan = optimizer.optimize(orders, riders, SHOP_LOCATION, 0);
     }
     res.json(latestPlan);
@@ -96,7 +79,7 @@ routingRouter.get('/current', requireRole('admin'), (req, res) => {
 });
 
 // GET /api/routes/rider/:jobCodeOrId - Rider view specific route by ID or job code
-routingRouter.get('/rider/:jobCodeOrId', (req, res) => {
+routingRouter.get('/rider/:jobCodeOrId', async (req, res) => {
   try {
     const param = req.params.jobCodeOrId.trim();
     let riderId = parseInt(param, 10);
@@ -118,26 +101,7 @@ routingRouter.get('/rider/:jobCodeOrId', (req, res) => {
 
     if (!latestPlan) {
       // Initialize if needed
-      const orders = db.prepare(`
-        SELECT 
-          o.id,
-          o.orderNumber,
-          o.customerId,
-          o.boxCount,
-          o.orderTime,
-          o.status,
-          c.name as customerName,
-          c.phone as customerPhone,
-          c.address as customerAddress,
-        c.zone,
-          c.lat,
-          c.lng
-        FROM orders o
-        JOIN customers c ON o.customerId = c.id
-        ORDER BY o.id ASC
-      `).all() as Order[];
-
-      const riders = db.prepare('SELECT * FROM riders ORDER BY id ASC').all() as Rider[];
+      const { orders, riders } = await loadOrdersAndRiders();
       latestPlan = optimizer.optimize(orders, riders, SHOP_LOCATION, 0);
     }
 
