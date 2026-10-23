@@ -10,7 +10,7 @@ import type { Client } from 'pg';
 const TAG = 'txn';
 let base: string;
 let db: Client;
-let conn: typeof import('../src/database/connection');
+let conn: typeof import('../dbconnect');
 let admin: string;
 
 before(async () => {
@@ -19,7 +19,7 @@ before(async () => {
   base = await startApp(url, 3340);
   admin = await login(base, 'admin', 'admin1234');
   db = await connectDb(url);
-  conn = await import('../src/database/connection');
+  conn = await import('../dbconnect');
 });
 
 after(async () => {

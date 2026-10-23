@@ -5,8 +5,8 @@ import http from 'node:http';
 async function main() {
   process.env.VERCEL = '1';
 
-  const { default: app } = await import('../../src/index');
-  const { pool } = await import('../../src/database/connection');
+  const { default: app } = await import('../../server');
+  const { pool } = await import('../../dbconnect');
 
   const server = http.createServer(app);
   await new Promise<void>((r) => server.listen(0, r));

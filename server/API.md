@@ -295,10 +295,10 @@ Invoke-RestMethod "$B/routes/rider/TASK-01" -Headers $H
 ดูตัวอย่างได้ที่ `server/.env.example` (ห้าม commit ไฟล์ `.env` ที่มีค่าจริง)
 
 ### สิ่งที่โค้ดรองรับแล้ว
-- `src/index.ts` มี `export default app` และเรียก `app.listen` เฉพาะตอนไม่ได้รันบน Vercel
+- `app.ts` และ `server.ts` มี `export default app`; `server.ts` เรียก `listen` เฉพาะตอนไม่ได้รันบน Vercel
 - ทุก request บน Vercel จะรอ `initDatabase()` (สร้างตาราง + seed ถ้ายังว่าง) ก่อนตอบเสมอ — ล้มเหลวจะตอบ 503 ไม่ใช่ crash
 - Cold start พร้อมกันหลายตัวปลอดภัยด้วย `pg_advisory_xact_lock` — ไม่มี seed ชนกัน
-- Vercel หา entrypoint `src/index.ts` เองได้ ไม่ต้องมี `vercel.json`
+- Vercel หา entrypoint (`app.ts` / `server.ts` ที่รากโฟลเดอร์ server) เองได้ ไม่ต้องมี `vercel.json`
 
 ### วิธีที่ 1: ผ่านหน้าเว็บ Vercel (แนะนำ)
 1. Push โค้ดขึ้น GitHub
@@ -323,7 +323,7 @@ vercel --prod   # deploy ขึ้น production
 ทดสอบในเครื่องแบบเดียวกับบน Vercel ได้ด้วย `vercel dev`
 
 ### เชื่อม Frontend กับ Backend ที่ deploy แล้ว
-แก้ `baseUrl` ใน `client/src/app/services/api.service.ts`
+แก้ `baseUrl` ใน `client/src/app/config/api.ts`
 ```ts
 private baseUrl = 'https://<project-name>.vercel.app/api';
 ```

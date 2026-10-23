@@ -23,7 +23,7 @@ interface Booted {
 
 const instances = new Map<string, Booted>();
 
-// Set when startApp() imported src/index into THIS process, so shutdownPg()
+// Set when startApp() imported server.ts into THIS process, so shutdownPg()
 // knows the app's pg.Pool must be drained before the embedded server stops.
 let appImported = false;
 
@@ -81,7 +81,7 @@ export async function shutdownPg(tag: string): Promise<void> {
   // holds idle clients emits 'error' (ECONNRESET) on each of them — teardown
   // noise that looks like a real connection failure.
   if (appImported) {
-    try { const { pool } = await import('../src/database/connection'); await pool.end(); } catch {}
+    try { const { pool } = await import('../dbconnect'); await pool.end(); } catch {}
   }
   try { await b.admin.end(); } catch {}
   try { await b.pg.stop(); } catch {}
@@ -97,13 +97,13 @@ export async function shutdownPg(tag: string): Promise<void> {
 }
 
 /**
- * Point the app at `url` and import src/index (which listens on `port`).
- * Must be called before ANY import of src/* in this process.
+ * Point the app at `url` and import server.ts (which listens on `port`).
+ * Must be called before ANY import of the app modules in this process.
  */
 export async function startApp(url: string, port: number): Promise<string> {
   process.env.DATABASE_URL = url;
   process.env.PORT = String(port);
-  await import('../src/index');
+  await import('../server');
   appImported = true;
   const base = `http://localhost:${port}/api`;
   // health endpoint itself waits on dbReady via middleware
@@ -152,7 +152,7 @@ export interface ScriptResult {
   stderr: string;
 }
 
-/** Run a repo script (scripts/*.ts or src/*.ts) in a child node+tsx process. */
+/** Run a repo script (scripts/*.ts or server.ts) in a child node+tsx process. */
 export function runScript(scriptRelPath: string, env: NodeJS.ProcessEnv): Promise<ScriptResult> {
   return new Promise((resolve) => {
     execFile(
