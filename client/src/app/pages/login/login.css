@@ -105,6 +105,22 @@
 .btn-block {
   margin-top: 6px;
 }
+.register-prompt {
+  display: flex;
+  justify-content: center;
+  gap: 5px;
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.register-prompt a {
+  color: var(--brand-strong);
+  font-weight: 600;
+  text-decoration: none;
+}
+.register-prompt a:hover {
+  text-decoration: underline;
+}
 .hint {
   display: flex;
   align-items: flex-start;

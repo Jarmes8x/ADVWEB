@@ -18,7 +18,7 @@
     <form class="login-card" (ngSubmit)="submit()" novalidate>
       <div class="login-header">
         <h1>เข้าสู่ระบบ</h1>
-        <p>สำหรับแอดมินร้านและไรเดอร์</p>
+        <p>สำหรับแอดมินร้าน ไรเดอร์ และลูกค้า</p>
       </div>
 
       <div class="form-group">
@@ -64,6 +64,11 @@
         <span class="btn-ico" [class.spin]="loading"><lucide-icon [img]="loading ? icons.refresh : icons.logIn" [size]="18"></lucide-icon></span>
         {{ loading ? 'กำลังเข้าสู่ระบบ…' : 'เข้าสู่ระบบ' }}
       </button>
+
+      <div class="register-prompt">
+        <span>ยังไม่มีบัญชีลูกค้า?</span>
+        <a routerLink="/register">สมัครสมาชิก</a>
+      </div>
 
       <p class="hint">
         <lucide-icon [img]="icons.info" [size]="15"></lucide-icon>

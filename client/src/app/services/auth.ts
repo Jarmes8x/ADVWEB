@@ -47,7 +47,10 @@ export class Auth {
 
   // หน้าแรกหลังล็อกอินขึ้นกับ role
   homeRoute(): string {
-    return this.isAdmin() ? '/routes' : '/rider';
+    const role = this.userSignal()?.role;
+    if (role === 'admin') return '/routes';
+    if (role === 'customer') return '/account';
+    return '/rider';
   }
 
   private loadUser(): AuthUser | null {

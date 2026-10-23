@@ -11,7 +11,7 @@ Error ทุกเส้นมีรูปแบบ `{ "error": "ข้อคว
 
 ## การยืนยันตัวตน (JWT)
 
-ทุกเส้นยกเว้น `/api/health` และ `/api/auth/login` ต้องส่ง header
+ทุกเส้นยกเว้น `/api/health`, `/api/auth/login` และ `/api/auth/register/customer` ต้องส่ง header
 ```
 Authorization: Bearer <token>
 ```
@@ -40,6 +40,20 @@ Authorization: Bearer <token>
 
 ### GET `/api/auth/me`
 คืนข้อมูลผู้ใช้ของ token ปัจจุบัน `{ "user": { ... } }`
+สำหรับบัญชีลูกค้า จะคืนข้อมูลโปรไฟล์ `{ "profile": { "name": "...", "phone": "...", "address": "..." } }` เพิ่มเติม
+
+### POST `/api/auth/register/customer`
+สร้างบัญชีลูกค้าและบันทึกชื่อ เบอร์โทร และที่อยู่ โดยยังไม่เก็บพิกัด (ไม่ต้องส่ง token)
+```json
+{
+  "name": "สมชาย ใจดี",
+  "phone": "081-234-5678",
+  "address": "หอพัก A ขามเรียง",
+  "username": "somchai01",
+  "password": "securepass123"
+}
+```
+ชื่อผู้ใช้ 3–24 ตัวอักษร, รหัสผ่าน 8–128 ตัวอักษร; ชื่อผู้ใช้ที่ซ้ำตอบ `409`
 
 ## สรุปทุกเส้น
 
@@ -47,23 +61,24 @@ Authorization: Bearer <token>
 |---|---|---|---|---|
 | 1 | GET | `/api/health` | เช็คว่า server ทำงาน | ทุกคน |
 | 2 | POST | `/api/auth/login` | เข้าสู่ระบบ รับ token | ทุกคน |
-| 3 | GET | `/api/auth/me` | ข้อมูลผู้ใช้ปัจจุบัน | login แล้ว |
-| 4 | GET | `/api/customers` | ลูกค้าทั้งหมด | admin |
-| 5 | GET | `/api/customers/:id` | ลูกค้า 1 คน | admin |
-| 6 | POST | `/api/customers` | เพิ่มลูกค้า | admin |
-| 7 | PUT | `/api/customers/:id` | แก้ไขลูกค้า | admin |
-| 8 | DELETE | `/api/customers/:id` | ลบลูกค้า (ลบออเดอร์ของลูกค้าด้วย) | admin |
-| 9 | GET | `/api/orders` | ออเดอร์ทั้งหมด | admin |
-| 10 | POST | `/api/orders` | เพิ่มออเดอร์ | admin |
-| 11 | PUT | `/api/orders/:id` | แก้ไขออเดอร์ | admin |
-| 12 | DELETE | `/api/orders/:id` | ลบออเดอร์ 1 รายการ | admin |
-| 13 | DELETE | `/api/orders` | ลบออเดอร์ทั้งหมด | admin |
-| 14 | POST | `/api/orders/simulate` | จำลองออเดอร์มื้อเที่ยง | admin |
-| 15 | GET | `/api/riders` | ไรเดอร์ทั้งหมด (rider เห็นแค่ตัวเอง) | admin, rider |
-| 16 | GET | `/api/riders/:idOrCode` | ไรเดอร์ 1 คน (rider ดูได้แค่ตัวเอง) | admin, rider |
-| 17 | POST | `/api/routes/optimize` | คำนวณเส้นทางใหม่ | admin |
-| 18 | GET | `/api/routes/current` | แผนเส้นทางล่าสุด | admin |
-| 19 | GET | `/api/routes/rider/:jobCodeOrId` | ใบงานของไรเดอร์ (rider ดูได้แค่ของตัวเอง) | admin, rider |
+| 3 | POST | `/api/auth/register/customer` | สมัครลูกค้าและบันทึกโปรไฟล์ | ทุกคน |
+| 4 | GET | `/api/auth/me` | ข้อมูลผู้ใช้ปัจจุบัน | login แล้ว |
+| 5 | GET | `/api/customers` | ลูกค้าทั้งหมด | admin |
+| 6 | GET | `/api/customers/:id` | ลูกค้า 1 คน | admin |
+| 7 | POST | `/api/customers` | เพิ่มลูกค้า | admin |
+| 8 | PUT | `/api/customers/:id` | แก้ไขลูกค้า | admin |
+| 9 | DELETE | `/api/customers/:id` | ลบลูกค้า (ลบออเดอร์ของลูกค้าด้วย) | admin |
+| 10 | GET | `/api/orders` | ออเดอร์ทั้งหมด | admin |
+| 11 | POST | `/api/orders` | เพิ่มออเดอร์ | admin |
+| 12 | PUT | `/api/orders/:id` | แก้ไขออเดอร์ | admin |
+| 13 | DELETE | `/api/orders/:id` | ลบออเดอร์ 1 รายการ | admin |
+| 14 | DELETE | `/api/orders` | ลบออเดอร์ทั้งหมด | admin |
+| 15 | POST | `/api/orders/simulate` | จำลองออเดอร์มื้อเที่ยง | admin |
+| 16 | GET | `/api/riders` | ไรเดอร์ทั้งหมด (rider เห็นแค่ตัวเอง) | admin, rider |
+| 17 | GET | `/api/riders/:idOrCode` | ไรเดอร์ 1 คน (rider ดูได้แค่ตัวเอง) | admin, rider |
+| 18 | POST | `/api/routes/optimize` | คำนวณเส้นทางใหม่ | admin |
+| 19 | GET | `/api/routes/current` | แผนเส้นทางล่าสุด | admin |
+| 20 | GET | `/api/routes/rider/:jobCodeOrId` | ใบงานของไรเดอร์ (rider ดูได้แค่ของตัวเอง) | admin, rider |
 
 ---
 

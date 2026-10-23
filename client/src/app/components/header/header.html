@@ -25,14 +25,18 @@
           <span>ลูกค้า</span>
         </a>
       </ng-container>
-      <a routerLink="/rider" routerLinkActive="active" class="nav-item rider-link">
+      <a *ngIf="user.role !== 'customer'" routerLink="/rider" routerLinkActive="active" class="nav-item rider-link">
         <lucide-icon [img]="icons.bike" [size]="17"></lucide-icon>
         <span>{{ auth.isAdmin() ? 'หน้าไรเดอร์' : 'ใบงานของฉัน' }}</span>
       </a>
+      <a *ngIf="user.role === 'customer'" routerLink="/account" routerLinkActive="active" class="nav-item">
+        <lucide-icon [img]="icons.userRound" [size]="17"></lucide-icon>
+        <span>บัญชีของฉัน</span>
+      </a>
 
-      <span class="nav-divider" aria-hidden="true"></span>
+      <span *ngIf="user.role !== 'customer'" class="nav-divider" aria-hidden="true"></span>
 
-      <span class="user-chip" [title]="user.role === 'admin' ? 'ผู้ดูแลร้าน' : 'ไรเดอร์'">
+      <span class="user-chip" [title]="user.role === 'admin' ? 'ผู้ดูแลร้าน' : user.role === 'rider' ? 'ไรเดอร์' : 'ลูกค้า'">
         <lucide-icon [img]="icons.userRound" [size]="15"></lucide-icon>
         {{ user.username }}
       </span>

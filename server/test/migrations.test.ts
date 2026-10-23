@@ -26,13 +26,14 @@ test('migrate applies 001_init.sql and records _migrations', async () => {
   assert.equal(res.code, 0, res.stderr);
   assert.match(res.stdout, /apply 001_init\.sql/);
   assert.match(res.stdout, /apply 002_order_number_seq\.sql/);
+  assert.match(res.stdout, /apply 003_customer_registration\.sql/);
 
   const db = await connectDb(url);
   const tables = (await db.query(
     `SELECT table_name FROM information_schema.tables WHERE table_schema='public'`)).rows.map((r) => r.table_name);
-  for (const t of ['customers', 'orders', 'riders', '_migrations']) assert.ok(tables.includes(t));
+  for (const t of ['customers', 'orders', 'riders', 'customer_profiles', '_migrations']) assert.ok(tables.includes(t));
   const mig = (await db.query('SELECT name FROM _migrations ORDER BY name')).rows.map((r) => r.name);
-  assert.deepEqual(mig, ['001_init.sql', '002_order_number_seq.sql']);
+  assert.deepEqual(mig, ['001_init.sql', '002_order_number_seq.sql', '003_customer_registration.sql']);
   await db.end();
 });
 

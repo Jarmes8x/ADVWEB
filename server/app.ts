@@ -60,8 +60,8 @@ app.use('/api/customers', requireRole('admin'), customers);
 app.use('/api/orders', requireRole('admin'), orders);
 
 // Admin + rider (per-rider checks happen inside the routers)
-app.use('/api/riders', riders);
-app.use('/api/routes', routes);
+app.use('/api/riders', requireRole('admin', 'rider'), riders);
+app.use('/api/routes', requireRole('admin', 'rider'), routes);
 
 // Vercel ใช้ app ที่ export ออกไปเป็น serverless function
 export default app;

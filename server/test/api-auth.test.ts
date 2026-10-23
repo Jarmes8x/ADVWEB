@@ -56,6 +56,47 @@ test('POST /auth/login missing fields -> 400', async () => {
   assert.equal((await req(base, 'POST', '/auth/login', { username: 'admin' })).status, 400);
 });
 
+test('customer registration stores profile details and creates a customer-only login', async () => {
+  const registration = await req(base, 'POST', '/auth/register/customer', {
+    name: 'ลูกค้าทดสอบ',
+    phone: '081-222-3344',
+    address: 'หอพักตัวอย่าง ขามเรียง',
+    username: 'customer01',
+    password: 'securepass123'
+  });
+  assert.equal(registration.status, 201);
+  assert.equal(registration.body.profile.name, 'ลูกค้าทดสอบ');
+  assert.equal(registration.body.profile.phone, '081-222-3344');
+  assert.equal(registration.body.profile.address, 'หอพักตัวอย่าง ขามเรียง');
+
+  const token = await login(base, 'customer01', 'securepass123');
+  const me = await req(base, 'GET', '/auth/me', undefined, token);
+  assert.equal(me.body.user.role, 'customer');
+  assert.equal(me.body.profile.name, 'ลูกค้าทดสอบ');
+  assert.equal(me.body.profile.address, 'หอพักตัวอย่าง ขามเรียง');
+  assert.equal((await req(base, 'GET', '/customers', undefined, token)).status, 403);
+  assert.equal((await req(base, 'GET', '/riders', undefined, token)).status, 403);
+  assert.equal((await req(base, 'GET', '/routes/rider/1', undefined, token)).status, 403);
+  assert.equal((await req(base, 'POST', '/auth/register/customer', {
+    name: 'ลูกค้าซ้ำ',
+    phone: '081-111-2233',
+    address: 'ที่อยู่ซ้ำ',
+    username: 'CUSTOMER01',
+    password: 'securepass123'
+  })).status, 409);
+});
+
+test('customer registration rejects incomplete or invalid details', async () => {
+  const response = await req(base, 'POST', '/auth/register/customer', {
+    name: '',
+    phone: 'abc',
+    address: '',
+    username: 'x',
+    password: 'short'
+  });
+  assert.equal(response.status, 400);
+});
+
 test('GET /auth/me returns the token user', async () => {
   const { status, body } = await req(base, 'GET', '/auth/me', undefined, rider1);
   assert.equal(status, 200);

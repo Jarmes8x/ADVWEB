@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 
-export type Role = 'admin' | 'rider';
+export type Role = 'admin' | 'rider' | 'customer';
 
 export interface AuthUser {
   userId: number;
