@@ -49,8 +49,8 @@ async function main() {
   await mig.end();
 
   // Import the app after env vars are set; it listens on PORT automatically.
-  const { pool } = await import('../src/database/connection');
-  await import('../src/index');
+  const { pool } = await import('../dbconnect');
+  await import('../server');
 
   const base = `http://localhost:${APP_PORT}/api`;
   // The server only listens after initDatabase() finishes (schema + seeds +

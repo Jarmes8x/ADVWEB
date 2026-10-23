@@ -1,5 +1,5 @@
 // Test helper: invoke initDatabase() twice concurrently, print JSON outcome.
-import { initDatabase, pool } from '../../src/database/connection';
+import { initDatabase, pool } from '../../dbconnect';
 
 Promise.allSettled([initDatabase(), initDatabase()])
   .then(async (results) => {

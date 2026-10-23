@@ -17,7 +17,7 @@ before(async () => {
 
 after(async () => {
   try {
-    const { pool } = await import('../src/database/connection');
+    const { pool } = await import('../dbconnect');
     await pool.end();
   } catch {}
   await shutdownPg(TAG);
@@ -27,7 +27,7 @@ after(async () => {
 test('initDatabase on fresh DB: tables + 13 riders, 60 customers, 30 orders, 14 users', async () => {
   const url = await createDb(booted, 'seeds_fresh');
   process.env.DATABASE_URL = url;
-  const { initDatabase, pool } = await import('../src/database/connection');
+  const { initDatabase, pool } = await import('../dbconnect');
   await initDatabase();
 
   const db = await connectDb(url);
@@ -58,7 +58,7 @@ test('initDatabase on fresh DB: tables + 13 riders, 60 customers, 30 orders, 14 
 });
 
 test('initDatabase re-run is idempotent (no duplicate seeds)', async () => {
-  const { initDatabase, query } = await import('../src/database/connection');
+  const { initDatabase, query } = await import('../dbconnect');
   await initDatabase(); // second run on same DATABASE_URL from previous test
   const { rows } = await query(`SELECT COUNT(*)::int c FROM riders`);
   assert.equal(rows[0].c, 13);
@@ -106,13 +106,13 @@ test('two concurrent initDatabase() on empty DB — serialized by advisory lock,
 
 test('startup without DATABASE_URL exits non-zero with clear message', async () => {
   // empty strings override any DATABASE_URL leaking from process.env / .env
-  const res = await runScript('src/index.ts', { DATABASE_URL: '', DATABASE_URL_UNPOOLED: '' });
+  const res = await runScript('server.ts', { DATABASE_URL: '', DATABASE_URL_UNPOOLED: '' });
   assert.notEqual(res.code, 0);
   assert.match(res.stderr + res.stdout, /DATABASE_URL is not set/);
 });
 
 test('startup with unreachable DB exits non-zero', async () => {
-  const res = await runScript('src/index.ts', {
+  const res = await runScript('server.ts', {
     DATABASE_URL: 'postgres://postgres:postgres@localhost:59999/x?sslmode=disable',
     PORT: '3400'
   });
