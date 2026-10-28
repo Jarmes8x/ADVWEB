@@ -178,6 +178,6 @@ test('camelCase columns require quoting (case sensitivity)', async () => {
 
 test('_migrations records applied files', async () => {
   const { rows } = await db.query('SELECT name, applied_at FROM _migrations ORDER BY name');
-  assert.deepEqual(rows.map((r) => r.name), ['001_init.sql', '002_order_number_seq.sql']);
+  assert.deepEqual(rows.map((r) => r.name), ['001_init.sql', '002_order_number_seq.sql', '003_customer_registration.sql']);
   assert.ok(rows[0].applied_at instanceof Date);
 });
