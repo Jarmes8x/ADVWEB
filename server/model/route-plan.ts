@@ -54,6 +54,8 @@ export interface RouteOptimizationResult {
     profitMarginPercent: number;
     onTimeDeliveryRate: number; // percentage <= 12:30
     allOnTime: boolean;
+    /** 'road' = ระยะตามถนนจริง (OSRM), 'straight' = ระยะเส้นตรง (สำรอง) */
+    distanceSource?: 'road' | 'straight';
   };
   shopLocation: {
     lat: number;

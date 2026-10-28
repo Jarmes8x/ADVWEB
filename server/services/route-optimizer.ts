@@ -21,6 +21,18 @@ export function calculateDistanceKm(lat1: number, lon1: number, lat2: number, lo
   return Number((R * c).toFixed(2));
 }
 
+/**
+ * จุดทั้งหมดที่ใช้คิดระยะทาง เรียงตามหมายเลข: 0 = ร้าน, i + 1 = orders[i]
+ * controller ใช้ฟังก์ชันนี้สร้างรายการพิกัดไปถามระยะถนน (OSRM)
+ * ⚠️ ลำดับต้องตรงกับที่ optimize() ใช้อ่านตารางระยะ จึงต้องสร้างจากที่เดียวกันเสมอ
+ */
+export function routePoints(orders: Order[], shop = SHOP_LOCATION): { lat: number; lng: number }[] {
+  return [
+    { lat: shop.lat, lng: shop.lng },
+    ...orders.map(o => ({ lat: o.lat ?? shop.lat, lng: o.lng ?? shop.lng }))
+  ];
+}
+
 // Format minutes from 11:30 to HH:mm string
 export function getEstimatedTimeStr(minutesFromStart: number): string {
   const startHour = 11;
@@ -51,7 +63,8 @@ export class RouteOptimizerService {
     orders: Order[],
     riders: Rider[],
     shop = SHOP_LOCATION,
-    strategySeed: number = 0
+    strategySeed: number = 0,
+    distanceMatrix?: number[][] // ระยะถนน (กม.) matrix[จาก][ไป] จาก road-distance.ts
   ): RouteOptimizationResult {
     if (orders.length === 0) {
       return {
@@ -73,15 +86,30 @@ export class RouteOptimizerService {
       };
     }
 
+    // ระยะทางระหว่างจุดหมายเลข a -> b (0 = ร้าน, i + 1 = orders[i])
+    // มีตารางระยะถนน (ขนาดถูกต้อง) ก็อ่านจากตาราง ไม่มีก็ใช้ Haversine เส้นตรงเหมือนเดิม
+    const points = routePoints(orders, shop);
+    const matrix =
+      distanceMatrix &&
+      distanceMatrix.length === points.length &&
+      distanceMatrix.every(row => row.length === points.length)
+        ? distanceMatrix
+        : undefined;
+    const dist = (a: number, b: number): number =>
+      matrix
+        ? matrix[a][b]
+        : calculateDistanceKm(points[a].lat, points[a].lng, points[b].lat, points[b].lng);
+
     // 1. Prepare order points with zone and angle from shop
-    const orderItems = orders.map(o => {
+    const orderItems = orders.map((o, i) => {
+      const idx = i + 1; // หมายเลขจุดของออเดอร์นี้ในตารางระยะ
       const lat = o.lat ?? shop.lat;
       const lng = o.lng ?? shop.lng;
       const zone: Zone = isZone(o.zone) ? o.zone : inferZone(lat, lng, o.customerAddress);
       // Angle is only used to order stops inside a zone; seed rotates the start point
       const angle = Math.atan2(lat - shop.lat, lng - shop.lng) + (strategySeed * 0.15);
-      const distFromShop = calculateDistanceKm(shop.lat, shop.lng, lat, lng);
-      return { order: o, lat, lng, zone, angle, distFromShop };
+      const distFromShop = dist(0, idx);
+      return { order: o, idx, lat, lng, zone, angle, distFromShop };
     });
     type OrderItem = typeof orderItems[number];
 
@@ -110,8 +138,7 @@ export class RouteOptimizerService {
       // TSP: Find shortest tour starting at shop
       // Shop -> Order A -> Order B -> Order C
       const unvisited = [...cluster];
-      let currentLat = shop.lat;
-      let currentLng = shop.lng;
+      let currentIdx = 0; // เริ่มที่ร้าน
       let totalDistKm = 0;
       let totalMinutes = 0;
 
@@ -135,10 +162,10 @@ export class RouteOptimizerService {
       while (unvisited.length > 0) {
         // Find nearest neighbor
         let nearestIdx = 0;
-        let minD = calculateDistanceKm(currentLat, currentLng, unvisited[0].lat, unvisited[0].lng);
+        let minD = dist(currentIdx, unvisited[0].idx);
 
         for (let j = 1; j < unvisited.length; j++) {
-          const d = calculateDistanceKm(currentLat, currentLng, unvisited[j].lat, unvisited[j].lng);
+          const d = dist(currentIdx, unvisited[j].idx);
           if (d < minD) {
             minD = d;
             nearestIdx = j;
@@ -175,8 +202,7 @@ export class RouteOptimizerService {
           deliverySequence: step
         });
 
-        currentLat = next.lat;
-        currentLng = next.lng;
+        currentIdx = next.idx;
         step++;
       }
 

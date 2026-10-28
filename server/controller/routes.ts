@@ -1,12 +1,22 @@
 import express from 'express';
 import { query, transaction, SHOP_LOCATION } from '../dbconnect';
-import { RouteOptimizerService } from '../services/route-optimizer';
+import { RouteOptimizerService, routePoints } from '../services/route-optimizer';
+import { getRoadDistanceMatrix } from '../services/road-distance';
 import { Order } from '../model/order';
 import { Rider } from '../model/rider';
 import { requireRole, canAccessRider, sendServerError } from '../jwtauth';
 
 export const router = express.Router();
 const optimizer = new RouteOptimizerService();
+
+// คำนวณแผน: ถามระยะตามถนนจริงก่อน (OSRM) แล้วส่งตารางระยะเข้าตัวคำนวณ
+// ถ้า OSRM ใช้ไม่ได้ road-distance.ts จะคืนระยะเส้นตรงมาแทน
+async function buildPlan(orders: Order[], riders: Rider[], seed: number) {
+  const { matrix, source } = await getRoadDistanceMatrix(routePoints(orders, SHOP_LOCATION));
+  const plan = optimizer.optimize(orders, riders, SHOP_LOCATION, seed, matrix);
+  plan.summary.distanceSource = source;
+  return plan;
+}
 
 // State caching the latest plan
 let latestPlan: any = null;
@@ -42,7 +52,7 @@ router.post('/optimize', requireRole('admin'), async (req, res) => {
     const seed = Number(req.body?.seed) || 0;
     const { orders, riders } = await loadOrdersAndRiders();
 
-    const plan = optimizer.optimize(orders, riders, SHOP_LOCATION, seed);
+    const plan = await buildPlan(orders, riders, seed);
     latestPlan = plan;
 
     // Persist assignments back to orders table
@@ -71,7 +81,7 @@ router.get('/current', requireRole('admin'), async (req, res) => {
     if (!latestPlan) {
       // Generate initial plan automatically if not generated yet
       const { orders, riders } = await loadOrdersAndRiders();
-      latestPlan = optimizer.optimize(orders, riders, SHOP_LOCATION, 0);
+      latestPlan = await buildPlan(orders, riders, 0);
     }
     res.json(latestPlan);
   } catch (error) {
@@ -103,7 +113,7 @@ router.get('/rider/:jobCodeOrId', async (req, res) => {
     if (!latestPlan) {
       // Initialize if needed
       const { orders, riders } = await loadOrdersAndRiders();
-      latestPlan = optimizer.optimize(orders, riders, SHOP_LOCATION, 0);
+      latestPlan = await buildPlan(orders, riders, 0);
     }
 
     const route = latestPlan.routes.find((r: any) => r.riderId === riderId);

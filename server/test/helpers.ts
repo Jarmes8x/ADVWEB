@@ -103,6 +103,8 @@ export async function shutdownPg(tag: string): Promise<void> {
 export async function startApp(url: string, port: number): Promise<string> {
   process.env.DATABASE_URL = url;
   process.env.PORT = String(port);
+  // เทสต์ต้องได้ผลเหมือนเดิมทุกครั้งและรันได้แบบไม่มีเน็ต: ใช้ระยะเส้นตรง ไม่ถาม OSRM
+  process.env.ROAD_DISTANCE ??= 'off';
   await import('../server');
   appImported = true;
   const base = `http://localhost:${port}/api`;

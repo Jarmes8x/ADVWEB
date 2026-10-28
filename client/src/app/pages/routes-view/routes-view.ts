@@ -27,6 +27,11 @@ export class RoutesView implements OnInit, AfterViewInit, OnDestroy {
 
   private routePlanApi = inject(RoutePlanApi);
 
+  /** เส้นตามถนนที่เคยขอแล้ว (key = พิกัดของจุดแวะ) จะได้ไม่ต้องขอ OSRM ซ้ำ */
+  private roadPathCache = new Map<string, [number, number][]>();
+  /** ต่อคิวขอทีละเส้น เพราะเซิร์ฟเวอร์ OSRM สาธิตจำกัดจำนวนคำขอ */
+  private roadQueue: Promise<unknown> = Promise.resolve();
+
   /** จำนวนไรเดอร์ที่ได้รับงาน (แผนอาจยังโหลดไม่เสร็จ) */
   get routeCount(): number {
     return this.planResult?.routes?.length ?? 0;
@@ -116,9 +121,11 @@ export class RoutesView implements OnInit, AfterViewInit, OnDestroy {
       const weight = isSelected ? (this.selectedRiderId === route.riderId ? 6 : 4) : 2;
 
       const latlngs: [number, number][] = route.waypoints.map(wp => [wp.lat, wp.lng]);
+      const roadKey = this.roadKey(latlngs);
+      const cachedRoad = this.roadPathCache.get(roadKey);
 
-      // Route line
-      const polyline = L.polyline(latlngs, {
+      // Route line: ใช้เส้นตามถนนถ้ามีแล้ว ถ้ายังไม่มีวาดเส้นตรงไปก่อน แล้วค่อยเปลี่ยนเมื่อ OSRM ตอบ
+      const polyline = L.polyline(cachedRoad ?? latlngs, {
         color: route.color,
         weight,
         opacity,
@@ -138,6 +145,11 @@ export class RoutesView implements OnInit, AfterViewInit, OnDestroy {
       });
 
       this.routeLayers.addLayer(polyline);
+      if (!cachedRoad && latlngs.length > 1) {
+        this.fetchRoadPath(latlngs).then(path => {
+          if (path) polyline.setLatLngs(path);
+        });
+      }
 
       // Customer delivery waypoints
       route.waypoints.forEach(wp => {
@@ -187,5 +199,44 @@ export class RoutesView implements OnInit, AfterViewInit, OnDestroy {
     this.selectedRiderId = null;
     this.renderMap();
     this.fitAllRoutes();
+  }
+
+  private roadKey(points: [number, number][]): string {
+    return points.map(([lat, lng]) => `${lat},${lng}`).join(';');
+  }
+
+  /**
+   * ขอเส้นทางตามถนนจริงจาก OSRM (Route API) สำหรับวาดบนแผนที่
+   * คืน null ถ้าขอไม่ได้ (เส้นตรงที่วาดไว้ก่อนจะยังอยู่ ไม่พัง)
+   *
+   * ⚠️ ใช้ fetch() ไม่ใช้ HttpClient: HttpClient ผ่าน auth-interceptor ซึ่งแนบ token ล็อกอิน
+   *    ไปกับทุก request ถ้าใช้เรียก OSRM จะเท่ากับส่ง token ให้เซิร์ฟเวอร์ภายนอก
+   */
+  private fetchRoadPath(points: [number, number][]): Promise<[number, number][] | null> {
+    const key = this.roadKey(points);
+    const job = this.roadQueue.then(async () => {
+      const cached = this.roadPathCache.get(key);
+      if (cached) return cached;
+
+      // ⚠️ OSRM ต้องการ lng,lat (กลับด้านกับ Leaflet ที่ใช้ [lat, lng])
+      const coords = points.map(([lat, lng]) => `${lng},${lat}`).join(';');
+      const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`;
+      try {
+        const res = await fetch(url);
+        if (!res.ok) return null;
+        const data = await res.json();
+        if (data.code !== 'Ok' || !data.routes?.length) return null;
+        // ผลลัพธ์เป็น [lng, lat] ต้องสลับกลับเป็น [lat, lng] ก่อนส่งให้ Leaflet
+        const path = (data.routes[0].geometry.coordinates as [number, number][]).map(
+          ([lng, lat]) => [lat, lng] as [number, number],
+        );
+        this.roadPathCache.set(key, path);
+        return path;
+      } catch {
+        return null;
+      }
+    });
+    this.roadQueue = job;
+    return job;
   }
 }
