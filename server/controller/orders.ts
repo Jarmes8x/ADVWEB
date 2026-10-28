@@ -54,7 +54,7 @@ router.post('/', async (req, res) => {
       `SELECT nextval('order_number_seq') AS seq`
     );
     const orderNumber = `ORD-${Date.now().toString().slice(-6)}-${String(seqResult.rows[0].seq).padStart(2, '0')}`;
-    // Equivalent of SQLite time('now','localtime') -> 'HH:MM:SS' in server local time
+    // 'HH:MM:SS' in server local time (same format as the pre-migration API)
     const orderTime = new Date().toTimeString().slice(0, 8);
 
     const inserted = await query<{ id: number }>(
