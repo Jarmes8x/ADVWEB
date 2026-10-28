@@ -24,6 +24,8 @@ function sslFor(url: string) {
   return { rejectUnauthorized: true };
 }
 
+const MIGRATE_LOCK_KEY = 727203;
+
 async function main() {
   const migrationsDir = path.resolve(__dirname, '../migrations');
   const files = fs.readdirSync(migrationsDir).filter((f) => f.endsWith('.sql')).sort();
@@ -32,6 +34,17 @@ async function main() {
   await client.connect();
 
   try {
+    // Session-level advisory lock: concurrent `npm run migrate` invocations
+    // serialize here — a second run waits for the first, then sees its
+    // migrations already applied and exits cleanly. Session locks release
+    // automatically if a holder crashes.
+    await client.query('SELECT pg_advisory_lock($1)', [MIGRATE_LOCK_KEY]);
+
+    const { rows: [ident] } = await client.query<{ db: string; usr: string }>(
+      'SELECT current_database() AS db, current_user AS usr'
+    );
+    console.log(`Target: database=${ident.db} user=${ident.usr}`);
+
     await client.query(`
       CREATE TABLE IF NOT EXISTS _migrations (
         name TEXT PRIMARY KEY,
@@ -41,6 +54,13 @@ async function main() {
 
     const applied = await client.query<{ name: string }>('SELECT name FROM _migrations');
     const appliedSet = new Set(applied.rows.map((r) => r.name));
+
+    const pending = files.filter((f) => !appliedSet.has(f));
+    if (pending.length === 0) {
+      console.log('No pending migrations.');
+    } else {
+      console.log(`Pending: ${pending.join(', ')}`);
+    }
 
     for (const file of files) {
       if (appliedSet.has(file)) {
@@ -60,6 +80,7 @@ async function main() {
       }
     }
 
+    await client.query('SELECT pg_advisory_unlock($1)', [MIGRATE_LOCK_KEY]);
     console.log('Migrations complete.');
   } finally {
     await client.end();
