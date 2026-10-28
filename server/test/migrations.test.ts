@@ -111,3 +111,28 @@ test('schema built by migrate equals initDatabase() — fingerprint comparison',
   assert.deepEqual(fm.idx, fi.idx, 'indexes differ');
   assert.deepEqual(fm.seqs, fi.seqs, 'sequences differ');
 });
+
+// The runtime schema module must stay byte-equivalent (modulo comments and
+// whitespace) to the canonical migration files — this is the guard that lets
+// initDatabase() and `npm run migrate` share one definition.
+const normalizeSql = (sql: string) =>
+  sql.replace(/--[^\n]*/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+
+test('schema.ts constants match migrations/*.sql exactly', async () => {
+  const { INIT_SCHEMA_SQL, ORDER_NUMBER_SEQ_SQL, CUSTOMER_REGISTRATION_SQL } = await import('../schema');
+  const f001 = fs.readFileSync(path.join(migrationsDir(), '001_init.sql'), 'utf8');
+  const f002 = fs.readFileSync(path.join(migrationsDir(), '002_order_number_seq.sql'), 'utf8');
+  const f003 = fs.readFileSync(path.join(migrationsDir(), '003_customer_registration.sql'), 'utf8');
+  assert.equal(
+    normalizeSql(INIT_SCHEMA_SQL), normalizeSql(f001),
+    'INIT_SCHEMA_SQL drifted from migrations/001_init.sql'
+  );
+  assert.equal(
+    normalizeSql(ORDER_NUMBER_SEQ_SQL), normalizeSql(f002),
+    'ORDER_NUMBER_SEQ_SQL drifted from migrations/002_order_number_seq.sql'
+  );
+  assert.equal(
+    normalizeSql(CUSTOMER_REGISTRATION_SQL), normalizeSql(f003),
+    'CUSTOMER_REGISTRATION_SQL drifted from migrations/003_customer_registration.sql'
+  );
+});
