@@ -11,6 +11,7 @@
     "migrate:data": "tsx scripts/migrate-data.ts",
     "test:smoke": "tsx scripts/smoke-test.ts",
     "check:db": "tsx scripts/check-connection.ts",
+    "check:target": "tsx scripts/verify-target.ts",
     "test": "node --import tsx --test \"test/**/*.test.ts\""
   },
   "dependencies": {
