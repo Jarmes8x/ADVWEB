@@ -4,8 +4,9 @@ import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
 import * as L from 'leaflet';
 import { RoutePlanApi } from '../../services/api/route-plan-api';
-import { RouteOptimizationResult, RiderRoute } from '../../model/route-plan';
+import { OutOfRangeOrder, RouteOptimizationResult, RiderRoute } from '../../model/route-plan';
 import { APP_ICONS, escapeHtml, iconSvg } from '../../shared/icons';
+import { MAX_DELIVERY_RADIUS_KM } from '../../shared/delivery-area';
 
 @Component({
   selector: 'app-routes-view',
@@ -19,6 +20,7 @@ export class RoutesView implements OnInit, AfterViewInit, OnDestroy {
   selectedRiderId: number | null = null;
   private calculationSeed = 0;
   readonly icons = APP_ICONS;
+  readonly maxRadiusKm = MAX_DELIVERY_RADIUS_KM;
   recalculating = false;
 
   private map?: L.Map;
@@ -31,6 +33,11 @@ export class RoutesView implements OnInit, AfterViewInit, OnDestroy {
   private roadPathCache = new Map<string, [number, number][]>();
   /** ต่อคิวขอทีละเส้น เพราะเซิร์ฟเวอร์ OSRM สาธิตจำกัดจำนวนคำขอ */
   private roadQueue: Promise<unknown> = Promise.resolve();
+
+  /** ออเดอร์ที่บ้านอยู่นอกรัศมี 3 กม. (backend ไม่ได้จัดให้ไรเดอร์) */
+  get outOfRangeOrders(): OutOfRangeOrder[] {
+    return this.planResult?.summary?.outOfRangeOrders ?? [];
+  }
 
   /** จำนวนไรเดอร์ที่ได้รับงาน (แผนอาจยังโหลดไม่เสร็จ) */
   get routeCount(): number {

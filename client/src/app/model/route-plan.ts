@@ -62,6 +62,8 @@ export interface RouteOptimizationResult {
     allOnTime: boolean;
     /** 'road' = ระยะตามถนนจริง (OSRM), 'straight' = ระยะเส้นตรง (สำรอง) */
     distanceSource?: 'road' | 'straight';
+    /** ออเดอร์ที่บ้านอยู่นอกรัศมีจัดส่ง 3 กม. (ไม่ได้จัดให้ไรเดอร์) */
+    outOfRangeOrders?: OutOfRangeOrder[];
   };
   shopLocation: ShopLocation;
 }
@@ -70,4 +72,12 @@ export interface RouteOptimizationResult {
 export interface RiderRouteResponse {
   shopLocation: ShopLocation;
   route: RiderRoute;
+}
+
+/** ออเดอร์ที่ส่งไม่ได้เพราะบ้านลูกค้าอยู่ไกลจากร้านเกิน 3 กม. (วัดเส้นตรง) */
+export interface OutOfRangeOrder {
+  orderId?: number;
+  orderNumber?: string;
+  customerName?: string;
+  distanceKm: number;
 }

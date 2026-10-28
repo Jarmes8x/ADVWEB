@@ -2,6 +2,19 @@ import express from 'express';
 import { sendServerError } from '../jwtauth';
 import { query, transaction } from '../dbconnect';
 import { Order } from '../model/order';
+import { MAX_DELIVERY_RADIUS_KM, distanceFromShopKm, isWithinDeliveryArea } from '../services/route-optimizer';
+
+// เช็กว่าลูกค้ามีจริงและบ้านอยู่ในรัศมีจัดส่ง
+// คืน null ถ้าผ่าน หรือข้อความ error ถ้าไม่ผ่าน
+async function customerDeliveryError(customerId: unknown, notFoundMessage: string): Promise<string | null> {
+  const { rows } = await query<{ lat: number; lng: number }>('SELECT lat, lng FROM customers WHERE id = $1', [customerId]);
+  if (rows.length === 0) return notFoundMessage;
+  const km = distanceFromShopKm(rows[0].lat, rows[0].lng);
+  if (km > MAX_DELIVERY_RADIUS_KM) {
+    return `ลูกค้ารายนี้อยู่นอกพื้นที่จัดส่ง (ห่างร้าน ${km.toFixed(2)} กม. เกิน ${MAX_DELIVERY_RADIUS_KM} กม.)`;
+  }
+  return null;
+}
 
 export const router = express.Router();
 
@@ -44,8 +57,9 @@ router.post('/', async (req, res) => {
     if (!customerId || !boxCount || boxCount < 1 || boxCount > 3) {
       return res.status(400).json({ error: 'Valid customerId and boxCount (1-3) are required' });
     }
-    if (!(await query('SELECT 1 FROM customers WHERE id = $1', [customerId])).rows.length) {
-      return res.status(400).json({ error: 'Valid customerId and boxCount (1-3) are required' });
+    const customerError = await customerDeliveryError(customerId, 'Valid customerId and boxCount (1-3) are required');
+    if (customerError) {
+      return res.status(400).json({ error: customerError });
     }
 
     // Concurrency-safe orderNumber: sequence value is unique even under
@@ -93,8 +107,14 @@ router.put('/:id', async (req, res) => {
     const updatedBoxCount = boxCount !== undefined ? boxCount : currentOrder.boxCount;
     const updatedCustomerId = customerId !== undefined ? customerId : currentOrder.customerId;
 
-    if (!(await query('SELECT 1 FROM customers WHERE id = $1', [updatedCustomerId])).rows.length) {
-      return res.status(400).json({ error: 'customerId does not exist' });
+    // เช็กพื้นที่จัดส่งเฉพาะตอนเปลี่ยนลูกค้า (แก้แค่จำนวนกล่องของออเดอร์เดิมได้เสมอ)
+    const customerError = customerId !== undefined
+      ? await customerDeliveryError(updatedCustomerId, 'customerId does not exist')
+      : (await query('SELECT 1 FROM customers WHERE id = $1', [updatedCustomerId])).rows.length
+        ? null
+        : 'customerId does not exist';
+    if (customerError) {
+      return res.status(400).json({ error: customerError });
     }
 
     await query(
@@ -140,7 +160,11 @@ router.post('/simulate', async (req, res) => {
     if (!Number.isInteger(count) || count < 1 || count > MAX_SIMULATED_ORDERS) {
       return res.status(400).json({ error: `count must be an integer between 1 and ${MAX_SIMULATED_ORDERS}` });
     }
-    const { rows: customers } = await query<{ id: number }>('SELECT id FROM customers');
+    // สุ่มเฉพาะลูกค้าที่อยู่ในรัศมีจัดส่ง 3 กม.
+    const { rows: allCustomers } = await query<{ id: number; lat: number; lng: number }>(
+      'SELECT id, lat, lng FROM customers'
+    );
+    const customers = allCustomers.filter(c => isWithinDeliveryArea(c.lat, c.lng));
 
     if (customers.length === 0) {
       return res.status(400).json({ error: 'No customers available in database' });

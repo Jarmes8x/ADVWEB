@@ -19,6 +19,11 @@
     </div>
   </div>
 
+  <div class="alert alert-error" *ngIf="pageError" role="alert">
+    <lucide-icon [img]="icons.alert" [size]="17"></lucide-icon>
+    <span>{{ pageError }}</span>
+  </div>
+
   <!-- ตัวเลขสรุป -->
   <div class="stat-grid">
     <div class="stat">
@@ -148,7 +153,9 @@
           <label for="order-customer">ลูกค้า <span class="req">*</span></label>
           <select id="order-customer" [(ngModel)]="selectedCustomerId" name="customerId" required>
             <option [ngValue]="null" disabled>— เลือกลูกค้า —</option>
-            <option *ngFor="let c of customers" [ngValue]="c.id">{{ c.name }} ({{ c.address }})</option>
+            <option *ngFor="let c of customers" [ngValue]="c.id" [disabled]="!inDeliveryArea(c)">
+              {{ c.name }} ({{ c.address }}){{ inDeliveryArea(c) ? '' : ' — นอกพื้นที่จัดส่ง ' + maxRadiusKm + ' กม.' }}
+            </option>
           </select>
         </div>
         <div class="form-group">
@@ -169,6 +176,10 @@
             </button>
           </div>
           <span class="field-hint">เงื่อนไขร้าน: สั่งได้ไม่เกิน 3 กล่องต่อออเดอร์</span>
+        </div>
+        <div class="alert alert-error" *ngIf="formError" role="alert">
+          <lucide-icon [img]="icons.alert" [size]="17"></lucide-icon>
+          <span>{{ formError }}</span>
         </div>
         <div class="modal-actions">
           <button type="button" class="btn btn-secondary" (click)="closeModal()">ยกเลิก</button>

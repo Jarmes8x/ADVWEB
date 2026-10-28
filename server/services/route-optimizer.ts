@@ -1,6 +1,6 @@
 import { Order } from '../model/order';
 import { Rider } from '../model/rider';
-import { RoutePoint, RiderRoute, RouteOptimizationResult } from '../model/route-plan';
+import { RoutePoint, RiderRoute, RouteOptimizationResult, OutOfRangeOrder } from '../model/route-plan';
 import { SHOP_LOCATION } from '../dbconnect';
 import { ZONES, Zone, isZone, inferZone } from '../model/zones';
 
@@ -31,6 +31,23 @@ export function routePoints(orders: Order[], shop = SHOP_LOCATION): { lat: numbe
     { lat: shop.lat, lng: shop.lng },
     ...orders.map(o => ({ lat: o.lat ?? shop.lat, lng: o.lng ?? shop.lng }))
   ];
+}
+
+/**
+ * พื้นที่จัดส่ง: รัศมีเส้นตรง 3 กม. รอบร้าน
+ * ใช้ทั้งตอนเพิ่ม/แก้ลูกค้า, สร้าง/จำลองออเดอร์ และตอนคำนวณเส้นทาง
+ * ⚠️ ต้องตรงกับ client/src/app/shared/delivery-area.ts
+ */
+export const MAX_DELIVERY_RADIUS_KM = 3;
+
+/** ระยะเส้นตรงจากร้านถึงพิกัดนี้ (กม.) */
+export function distanceFromShopKm(lat: number, lng: number, shop = SHOP_LOCATION): number {
+  return calculateDistanceKm(shop.lat, shop.lng, lat, lng);
+}
+
+/** อยู่ในพื้นที่จัดส่ง (ไม่เกิน 3 กม. จากร้าน) หรือไม่ */
+export function isWithinDeliveryArea(lat: number, lng: number, shop = SHOP_LOCATION): boolean {
+  return distanceFromShopKm(lat, lng, shop) <= MAX_DELIVERY_RADIUS_KM;
 }
 
 // Format minutes from 11:30 to HH:mm string
@@ -80,7 +97,8 @@ export class RouteOptimizerService {
           netProfit: 0,
           profitMarginPercent: 0,
           onTimeDeliveryRate: 100,
-          allOnTime: true
+          allOnTime: true,
+          outOfRangeOrders: []
         },
         shopLocation: shop
       };
@@ -113,11 +131,26 @@ export class RouteOptimizerService {
     });
     type OrderItem = typeof orderItems[number];
 
+    // 1.5 ตัดออเดอร์ที่บ้านอยู่นอกรัศมี 3 กม. ออก (ไม่จัดให้ไรเดอร์ แต่แจ้งกลับไปในสรุป)
+    //     วัดเส้นตรงจากร้านเสมอ ไม่ว่าจะมีตารางระยะถนนหรือไม่ เพื่อให้ตรงกับกฎตอนเพิ่มลูกค้า
+    const outOfRangeOrders: OutOfRangeOrder[] = [];
+    const deliverableItems = orderItems.filter(item => {
+      const km = distanceFromShopKm(item.lat, item.lng, shop);
+      if (km <= MAX_DELIVERY_RADIUS_KM) return true;
+      outOfRangeOrders.push({
+        orderId: item.order.id,
+        orderNumber: item.order.orderNumber,
+        customerName: item.order.customerName,
+        distanceKm: km
+      });
+      return false;
+    });
+
     // 2. Group by zone, then split each zone into clusters of max 3 orders.
     //    A rider never crosses into another zone.
     const clusters: { zone: Zone; items: OrderItem[] }[] = [];
     for (const zone of ZONES) {
-      const inZone = orderItems
+      const inZone = deliverableItems
         .filter(item => item.zone === zone)
         .sort((a, b) => a.angle - b.angle || a.distFromShop - b.distFromShop);
       for (let i = 0; i < inZone.length; i += MAX_ORDERS_PER_RIDER) {
@@ -252,8 +285,9 @@ export class RouteOptimizerService {
     }
 
     // Overall system summary
-    const totalOrders = orders.length;
-    const totalBoxes = orders.reduce((sum, o) => sum + o.boxCount, 0);
+    // นับเฉพาะออเดอร์ที่ส่งได้ (ในรัศมี) ออเดอร์นอกรัศมีอยู่ใน outOfRangeOrders
+    const totalOrders = deliverableItems.length;
+    const totalBoxes = deliverableItems.reduce((sum, item) => sum + item.order.boxCount, 0);
     const assignedRidersCount = riderRoutes.length;
     const totalDistanceKm = Number(riderRoutes.reduce((sum, r) => sum + r.totalDistanceKm, 0).toFixed(2));
     const totalDeliveryCost = Number(riderRoutes.reduce((sum, r) => sum + r.totalDeliveryCost, 0).toFixed(2));
@@ -277,7 +311,8 @@ export class RouteOptimizerService {
         netProfit,
         profitMarginPercent,
         onTimeDeliveryRate,
-        allOnTime: onTimeRoutes === riderRoutes.length
+        allOnTime: onTimeRoutes === riderRoutes.length,
+        outOfRangeOrders
       },
       shopLocation: shop
     };

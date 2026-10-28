@@ -55,7 +55,7 @@
       <div>
         <div class="stat-label">ต้นทุนอาหาร</div>
         <div class="stat-value">{{ s.totalFoodCost | number: '1.0-0' }} ฿</div>
-        <div class="stat-sub">{{ s.totalOrders }} ออเดอร์ × 40 ฿/กล่อง</div>
+        <div class="stat-sub">{{ s.totalBoxes }} กล่อง × 40 ฿</div>
       </div>
     </div>
     <div class="stat" [class.late]="!s.allOnTime">
@@ -69,6 +69,19 @@
         </div>
         <div class="stat-sub">ใช้ไรเดอร์ {{ s.assignedRidersCount }} จาก 13 คน</div>
       </div>
+    </div>
+  </div>
+
+  <!-- ออเดอร์ที่บ้านอยู่นอกรัศมี 3 กม. (ไม่ได้จัดให้ไรเดอร์) -->
+  <div class="alert alert-warning out-of-range" *ngIf="outOfRangeOrders.length" role="alert">
+    <lucide-icon [img]="icons.warning" [size]="18"></lucide-icon>
+    <div>
+      <strong>มี {{ outOfRangeOrders.length }} ออเดอร์อยู่นอกพื้นที่จัดส่ง {{ maxRadiusKm }} กม. จึงไม่ได้จัดให้ไรเดอร์</strong>
+      <ul>
+        <li *ngFor="let o of outOfRangeOrders">
+          {{ o.orderNumber }} · {{ o.customerName }} · ห่างร้าน {{ o.distanceKm | number: '1.2-2' }} กม.
+        </li>
+      </ul>
     </div>
   </div>
 

@@ -93,6 +93,10 @@
   font-size: 12.5px;
   color: var(--muted);
 }
+.field-hint.text-bad {
+  color: var(--red);
+  font-weight: 600;
+}
 
 @media (max-width: 1080px) {
   .content-grid {

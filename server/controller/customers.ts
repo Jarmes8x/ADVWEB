@@ -3,6 +3,14 @@ import { sendServerError } from '../jwtauth';
 import { query, transaction } from '../dbconnect';
 import { Customer } from '../model/customer';
 import { isZone, inferZone } from '../model/zones';
+import { MAX_DELIVERY_RADIUS_KM, distanceFromShopKm } from '../services/route-optimizer';
+
+// บ้านต้องอยู่ในรัศมีจัดส่ง 3 กม. จากร้าน ถ้าเกินคืนข้อความ error (ใช้ทั้งเพิ่มและแก้ไข)
+function outsideDeliveryAreaError(lat: number, lng: number): string | null {
+  const km = distanceFromShopKm(lat, lng);
+  if (km <= MAX_DELIVERY_RADIUS_KM) return null;
+  return `ที่อยู่นี้อยู่นอกพื้นที่จัดส่ง (ห่างร้าน ${km.toFixed(2)} กม. เกิน ${MAX_DELIVERY_RADIUS_KM} กม.)`;
+}
 
 export const router = express.Router();
 
@@ -43,6 +51,10 @@ router.post('/', async (req, res) => {
     if (zone !== undefined && !isZone(zone)) {
       return res.status(400).json({ error: 'zone must be one of: ขามเรียง, ท่าขอนยาง, หน้าป้าย' });
     }
+    const areaError = outsideDeliveryAreaError(Number(lat), Number(lng));
+    if (areaError) {
+      return res.status(400).json({ error: areaError });
+    }
     const finalZone = zone ?? inferZone(Number(lat), Number(lng), address);
     const { rows } = await query(
       `INSERT INTO customers (name, phone, address, lat, lng, zone)
@@ -68,6 +80,14 @@ router.put('/:id', async (req, res) => {
     }
     if (zone !== undefined && !isZone(zone)) {
       return res.status(400).json({ error: 'zone must be one of: ขามเรียง, ท่าขอนยาง, หน้าป้าย' });
+    }
+    // ลูกค้าที่ไม่มีอยู่ตอบ 404 ก่อน แล้วค่อยเช็กพื้นที่จัดส่ง
+    if (!(await query('SELECT 1 FROM customers WHERE id = $1', [id])).rows.length) {
+      return res.status(404).json({ error: 'Customer not found' });
+    }
+    const areaError = outsideDeliveryAreaError(Number(lat), Number(lng));
+    if (areaError) {
+      return res.status(400).json({ error: areaError });
     }
     const finalZone = zone ?? inferZone(Number(lat), Number(lng), address);
     const { rows } = await query(
