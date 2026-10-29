@@ -1,5 +1,4 @@
 <div class="rider-page">
-  <!-- แถบหัว -->
   <div class="app-bar">
     <span class="app-bar-icon"><lucide-icon [img]="icons.bike" [size]="22"></lucide-icon></span>
     <div>
@@ -8,7 +7,6 @@
     </div>
   </div>
 
-  <!-- แอดมิน: เลือกดูใบงานของไรเดอร์คนไหนก็ได้ -->
   <div class="card job-search" *ngIf="auth.isAdmin()">
     <label for="jobCode">
       <lucide-icon [img]="icons.key" [size]="15"></lucide-icon>
@@ -40,7 +38,6 @@
   <div class="loading-line" *ngIf="loading && !currentRoute">กำลังโหลดใบงาน…</div>
 
   <ng-container *ngIf="currentRoute as route">
-    <!-- สรุปงาน -->
     <section class="job-summary" [style.--rider]="route.color">
       <div class="js-head">
         <div class="js-who">
@@ -79,7 +76,6 @@
       </div>
     </section>
 
-    <!-- ลำดับจุดส่ง -->
     <h3 class="section-title">
       <lucide-icon [img]="icons.mapPinned" [size]="17"></lucide-icon>
       ลำดับจุดส่ง ({{ deliveryCount }} จุด)

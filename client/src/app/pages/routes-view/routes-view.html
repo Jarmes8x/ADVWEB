@@ -15,7 +15,6 @@
     </div>
   </div>
 
-  <!-- สรุปการเงินและเวลา -->
   <div class="summary" *ngIf="planResult?.summary as s">
     <div class="profit-hero" [class.loss]="s.netProfit < 0">
       <div class="hero-label">
@@ -72,7 +71,6 @@
     </div>
   </div>
 
-  <!-- ออเดอร์ที่บ้านอยู่นอกรัศมี 3 กม. (ไม่ได้จัดให้ไรเดอร์) -->
   <div class="alert alert-warning out-of-range" *ngIf="outOfRangeOrders.length" role="alert">
     <lucide-icon [img]="icons.warning" [size]="18"></lucide-icon>
     <div>
@@ -86,7 +84,6 @@
   </div>
 
   <div class="main-layout">
-    <!-- แผนที่ -->
     <div class="card map-card">
       <div class="card-header">
         <h3 class="card-title">
@@ -105,7 +102,6 @@
       </p>
     </div>
 
-    <!-- รายการใบงานไรเดอร์ -->
     <aside class="riders-panel">
       <div class="panel-head">
         <h3 class="card-title">

@@ -29,17 +29,13 @@ export class RoutesView implements OnInit, AfterViewInit, OnDestroy {
 
   private routePlanApi = inject(RoutePlanApi);
 
-  /** เส้นตามถนนที่เคยขอแล้ว (key = พิกัดของจุดแวะ) จะได้ไม่ต้องขอ OSRM ซ้ำ */
   private roadPathCache = new Map<string, [number, number][]>();
-  /** ต่อคิวขอทีละเส้น เพราะเซิร์ฟเวอร์ OSRM สาธิตจำกัดจำนวนคำขอ */
   private roadQueue: Promise<unknown> = Promise.resolve();
 
-  /** ออเดอร์ที่บ้านอยู่นอกรัศมี 3 กม. (backend ไม่ได้จัดให้ไรเดอร์) */
   get outOfRangeOrders(): OutOfRangeOrder[] {
     return this.planResult?.summary?.outOfRangeOrders ?? [];
   }
 
-  /** จำนวนไรเดอร์ที่ได้รับงาน (แผนอาจยังโหลดไม่เสร็จ) */
   get routeCount(): number {
     return this.planResult?.routes?.length ?? 0;
   }
@@ -68,7 +64,6 @@ export class RoutesView implements OnInit, AfterViewInit, OnDestroy {
     this.routeLayers.addTo(this.map);
     this.markerLayers.addTo(this.map);
 
-    // Initial draw once plan is loaded
     if (this.planResult) {
       this.renderMap();
       this.fitAllRoutes();
@@ -81,7 +76,6 @@ export class RoutesView implements OnInit, AfterViewInit, OnDestroy {
     this.fitAllRoutes();
   }
 
-  /** ซูมแผนที่ให้เห็นทุกเส้นทาง */
   private fitAllRoutes() {
     if (!this.map || !this.planResult) return;
     const points = this.planResult.routes.flatMap(r => r.waypoints.map(w => [w.lat, w.lng] as [number, number]));
@@ -109,7 +103,6 @@ export class RoutesView implements OnInit, AfterViewInit, OnDestroy {
     this.routeLayers.clearLayers();
     this.markerLayers.clearLayers();
 
-    // 1. Draw Shop marker
     const shop = this.planResult.shopLocation;
     const shopIcon = L.divIcon({
       html: iconSvg(APP_ICONS.store, 19, '#fff'),
@@ -121,7 +114,6 @@ export class RoutesView implements OnInit, AfterViewInit, OnDestroy {
       .addTo(this.markerLayers)
       .bindPopup(`<div class="map-popup-title">${escapeHtml(shop.name)}</div><div class="map-popup-row">${iconSvg(APP_ICONS.clock, 13)} จุดเริ่มต้นออกส่ง 11:30 น.</div>`);
 
-    // 2. Draw each rider route with distinct line and markers
     this.planResult.routes.forEach(route => {
       const isSelected = this.selectedRiderId === null || this.selectedRiderId === route.riderId;
       const opacity = isSelected ? 0.9 : 0.2;
@@ -131,7 +123,6 @@ export class RoutesView implements OnInit, AfterViewInit, OnDestroy {
       const roadKey = this.roadKey(latlngs);
       const cachedRoad = this.roadPathCache.get(roadKey);
 
-      // Route line: ใช้เส้นตามถนนถ้ามีแล้ว ถ้ายังไม่มีวาดเส้นตรงไปก่อน แล้วค่อยเปลี่ยนเมื่อ OSRM ตอบ
       const polyline = L.polyline(cachedRoad ?? latlngs, {
         color: route.color,
         weight,
@@ -158,7 +149,6 @@ export class RoutesView implements OnInit, AfterViewInit, OnDestroy {
         });
       }
 
-      // Customer delivery waypoints
       route.waypoints.forEach(wp => {
         if (wp.type === 'delivery') {
           const customIcon = L.divIcon({
@@ -195,7 +185,6 @@ export class RoutesView implements OnInit, AfterViewInit, OnDestroy {
     }
     this.renderMap();
 
-    // Zoom slightly to the selected rider's points
     if (this.selectedRiderId && this.map) {
       const bounds = L.latLngBounds(route.waypoints.map(w => [w.lat, w.lng]));
       this.map.fitBounds(bounds, { padding: [50, 50] });
@@ -212,20 +201,12 @@ export class RoutesView implements OnInit, AfterViewInit, OnDestroy {
     return points.map(([lat, lng]) => `${lat},${lng}`).join(';');
   }
 
-  /**
-   * ขอเส้นทางตามถนนจริงจาก OSRM (Route API) สำหรับวาดบนแผนที่
-   * คืน null ถ้าขอไม่ได้ (เส้นตรงที่วาดไว้ก่อนจะยังอยู่ ไม่พัง)
-   *
-   * ⚠️ ใช้ fetch() ไม่ใช้ HttpClient: HttpClient ผ่าน auth-interceptor ซึ่งแนบ token ล็อกอิน
-   *    ไปกับทุก request ถ้าใช้เรียก OSRM จะเท่ากับส่ง token ให้เซิร์ฟเวอร์ภายนอก
-   */
   private fetchRoadPath(points: [number, number][]): Promise<[number, number][] | null> {
     const key = this.roadKey(points);
     const job = this.roadQueue.then(async () => {
       const cached = this.roadPathCache.get(key);
       if (cached) return cached;
 
-      // ⚠️ OSRM ต้องการ lng,lat (กลับด้านกับ Leaflet ที่ใช้ [lat, lng])
       const coords = points.map(([lat, lng]) => `${lng},${lat}`).join(';');
       const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`;
       try {
@@ -233,7 +214,6 @@ export class RoutesView implements OnInit, AfterViewInit, OnDestroy {
         if (!res.ok) return null;
         const data = await res.json();
         if (data.code !== 'Ok' || !data.routes?.length) return null;
-        // ผลลัพธ์เป็น [lng, lat] ต้องสลับกลับเป็น [lat, lng] ก่อนส่งให้ Leaflet
         const path = (data.routes[0].geometry.coordinates as [number, number][]).map(
           ([lng, lat]) => [lat, lng] as [number, number],
         );

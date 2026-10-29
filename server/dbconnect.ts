@@ -5,9 +5,6 @@ import { inferZone } from './model/zones';
 import { SAMPLE_CUSTOMERS } from './seed/sample-customers';
 import { SCHEMA_SQL } from './schema';
 
-// Neon PostgreSQL connection.
-// DATABASE_URL         -> pooled connection string (runtime queries)
-// DATABASE_URL_UNPOOLED-> direct connection string (migrations / scripts)
 const connectionString = process.env.DATABASE_URL;
 
 if (!connectionString) {
@@ -18,25 +15,19 @@ if (!connectionString) {
 }
 
 function resolveSsl(url: string) {
-  // If the URL already carries an sslmode/libpq-compat option, let it drive.
   if (/sslmode=|uselibpqcompat=/i.test(url)) return undefined;
-  // Local development databases usually run without TLS.
   if (/@(localhost|127\.0\.0\.1|0\.0\.0\.0)(:|\/|$)/i.test(url)) return false;
-  // Neon and other hosted Postgres require TLS.
   return { rejectUnauthorized: true };
 }
 
 export const pool = new Pool({
   connectionString,
   ssl: resolveSsl(connectionString),
-  // Serverless functions should hold only a few connections; Neon pooler does the rest.
   max: Number(process.env.PGPOOL_MAX) || (process.env.VERCEL ? 3 : 10),
   idleTimeoutMillis: 30_000,
   connectionTimeoutMillis: 10_000
 });
 
-// Idle clients can be terminated by the host (e.g. Neon autosuspend / pooler).
-// Without a handler an 'error' event on an idle client would crash the process.
 pool.on('error', (err) => {
   console.error('Unexpected error on idle database client:', err.message);
 });
@@ -48,7 +39,6 @@ export async function query<T extends QueryResultRow = any>(
   return pool.query<T>(text, params);
 }
 
-// Run statements atomically; rolls back on any thrown error.
 export async function transaction<T>(
   fn: (client: PoolClient) => Promise<T>
 ): Promise<T> {
@@ -66,21 +56,20 @@ export async function transaction<T>(
   }
 }
 
-// 13 Distinct Rider Colors for visual clarity on map
 export const RIDER_COLORS = [
-  '#E6194B', // Red
-  '#3CBA54', // Green
-  '#0082C8', // Blue
-  '#F58231', // Orange
-  '#911EB4', // Purple
-  '#46F0F0', // Cyan
-  '#F032E6', // Magenta
-  '#BCF60C', // Lime
-  '#FABEBE', // Pink
-  '#008080', // Teal
-  '#E6BEFF', // Lavender
-  '#9A6324', // Brown
-  '#800000'  // Maroon
+  '#E6194B',
+  '#3CBA54',
+  '#0082C8',
+  '#F58231',
+  '#911EB4',
+  '#46F0F0',
+  '#F032E6',
+  '#BCF60C',
+  '#FABEBE',
+  '#008080',
+  '#E6BEFF',
+  '#9A6324',
+  '#800000'
 ];
 
 export const SHOP_LOCATION = {
@@ -89,8 +78,6 @@ export const SHOP_LOCATION = {
   lng: 103.2505
 };
 
-// Transaction-scoped advisory lock so concurrent cold starts (serverless)
-// serialize the whole init+seed sequence instead of racing on seed inserts.
 const INIT_LOCK_KEY = 727201;
 
 const INITIAL_ORDER_COUNT = 30;
@@ -99,13 +86,8 @@ export async function initDatabase() {
   await transaction(async (client) => {
     await client.query('SELECT pg_advisory_xact_lock($1)', [INIT_LOCK_KEY]);
 
-    // Idempotent schema setup — single source of truth is schema.ts, kept
-    // byte-equivalent to migrations/*.sql (enforced by migrations.test.ts).
-    // SCHEMA_SQL covers migrations 001–003, including the users role widening
-    // and idx_users_lower_username, so no separate ALTER block is needed here.
     await client.query(SCHEMA_SQL);
 
-    // Seed 13 Fixed Riders if not existing
     const riderCount = await client.query<{ count: number }>(
       'SELECT COUNT(*)::int AS count FROM riders'
     );
@@ -141,20 +123,12 @@ export async function initDatabase() {
   });
 }
 
-// Seed sample dorm customers (see sampleCustomers.ts) and, on a fresh database, a first batch of orders.
-// Older databases had 30 customers with inaccurate coordinates (phone 081-234-56xx);
-// those are replaced once. Customers added by users are never touched.
 async function seedSampleCustomers(client: PoolClient) {
   const { rows: [{ count }] } = await client.query<{ count: number }>(
     'SELECT COUNT(*)::int AS count FROM customers'
   );
   const isFreshDb = count === 0;
 
-  // One-time legacy cleanup: the pre-zone SQLite seeds used the synthetic
-  // phone block 081-234-56xx for all 30 sample customers. The cleanup only
-  // runs when a substantial run of that block is present (i.e. it is clearly
-  // the old seed set); a handful of coincidentally matching user-entered
-  // customers is never enough to trigger deletion.
   const oldBlock = await client.query<{ count: number }>(
     `SELECT COUNT(*)::int AS count FROM customers WHERE phone LIKE '081-234-56__'`
   );
@@ -168,7 +142,6 @@ async function seedSampleCustomers(client: PoolClient) {
     }
   }
 
-  // Insert only sample customers that are missing, so restarts don't create duplicates
   const existing = await client.query<{ name: string }>('SELECT name FROM customers');
   const existingNames = new Set(existing.rows.map((r) => r.name));
   for (const c of SAMPLE_CUSTOMERS) {
@@ -183,7 +156,6 @@ async function seedSampleCustomers(client: PoolClient) {
   if (isFreshDb) {
     const ids = (await client.query<{ id: number }>('SELECT id FROM customers ORDER BY id')).rows
       .map((r) => r.id);
-    // Every other customer, so the first batch is spread over all three zones
     const picked = ids.filter((_, i) => i % 2 === 0).slice(0, INITIAL_ORDER_COUNT);
     for (let idx = 0; idx < picked.length; idx++) {
       const orderNum = `ORD-20261003-${(idx + 1).toString().padStart(3, '0')}`;
@@ -196,7 +168,6 @@ async function seedSampleCustomers(client: PoolClient) {
   }
 }
 
-// Databases created before zones existed: add the column and fill it in once
 async function migrateCustomerZones(client: PoolClient) {
   const { rows } = await client.query<{ exists: boolean }>(
     `SELECT EXISTS (
@@ -216,7 +187,6 @@ async function migrateCustomerZones(client: PoolClient) {
   }
 }
 
-// Seed login accounts: 1 admin + 1 account per rider (rider01..rider13)
 async function seedUsers(client: PoolClient) {
   const { rows: [{ count }] } = await client.query<{ count: number }>(
     'SELECT COUNT(*)::int AS count FROM users'

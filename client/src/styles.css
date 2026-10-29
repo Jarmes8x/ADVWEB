@@ -1,28 +1,21 @@
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=Prompt:wght@500;600;700&display=swap');
 
-/* =========================================================
-   ธีมร้านข้าวกล่อง: ส้มอบอุ่น บนพื้นกระดาษสีครีม
-   ========================================================= */
 :root {
-  /* พื้นหลัง / พื้นผิว */
   --bg: #fbf7f2;
   --surface: #ffffff;
   --surface-2: #f7f0e8;
   --line: #ece2d7;
   --line-strong: #dccfc1;
 
-  /* ตัวอักษร */
   --ink: #2a211b;
   --ink-2: #57493f;
   --muted: #8a7b70;
 
-  /* สีแบรนด์ (ส้มข้าวกล่อง) */
   --brand: #e2580e;
   --brand-strong: #bf4507;
   --brand-50: #fff4ea;
   --brand-100: #ffe4cc;
 
-  /* สีสถานะ */
   --green: #2f7d4f;
   --green-50: #e9f5ee;
   --amber: #a8650b;
@@ -32,7 +25,6 @@
   --blue: #2b6cb0;
   --blue-50: #e8f0fa;
 
-  /* ของเดิม (ยังมีบางไฟล์อ้างถึง) */
   --primary: var(--brand);
   --primary-hover: var(--brand-strong);
   --primary-light: var(--brand-100);
@@ -95,14 +87,12 @@ a {
   font-variant-numeric: tabular-nums;
 }
 
-/* ไอคอน Lucide วางในบรรทัดเดียวกับข้อความได้พอดี */
 lucide-icon,
 lucide-angular {
   display: inline-flex;
   flex-shrink: 0;
 }
 
-/* ---------------- ส่วนหัวของแต่ละหน้า ---------------- */
 .page-header {
   display: flex;
   justify-content: space-between;
@@ -134,7 +124,6 @@ lucide-angular {
   flex-wrap: wrap;
 }
 
-/* ---------------- ปุ่ม ---------------- */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -225,7 +214,6 @@ lucide-angular {
   background: #f8d9d4;
 }
 
-/* ปุ่มไอคอนล้วน (แก้ไข/ลบ ในตาราง) */
 .icon-btn {
   display: inline-flex;
   align-items: center;
@@ -250,7 +238,6 @@ lucide-angular {
   border-color: #f3cdc7;
 }
 
-/* ---------------- การ์ด ---------------- */
 .card {
   background: var(--surface);
   border-radius: var(--radius);
@@ -276,7 +263,6 @@ lucide-angular {
   color: var(--brand);
 }
 
-/* ---------------- การ์ดตัวเลขสรุป (KPI) ---------------- */
 .stat-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
@@ -338,7 +324,6 @@ lucide-angular {
   color: var(--muted);
 }
 
-/* ---------------- ฟอร์ม ---------------- */
 input,
 select,
 textarea {
@@ -378,7 +363,6 @@ label {
   color: var(--red);
 }
 
-/* ช่องค้นหาที่มีไอคอนแว่นขยาย */
 .input-icon {
   position: relative;
   display: flex;
@@ -394,7 +378,6 @@ label {
   padding-left: 36px;
 }
 
-/* ---------------- ป้าย (badge) ---------------- */
 .badge {
   display: inline-flex;
   align-items: center;
@@ -429,7 +412,6 @@ label {
   color: var(--brand-strong);
 }
 
-/* ---------------- ตาราง ---------------- */
 .table-wrap {
   overflow-x: auto;
   border: 1px solid var(--line);
@@ -482,7 +464,6 @@ label {
   justify-content: flex-end;
 }
 
-/* ---------------- สถานะว่าง / แจ้งเตือน ---------------- */
 .empty-state {
   display: flex;
   flex-direction: column;
@@ -524,7 +505,6 @@ label {
   border-color: #f2dfb0;
 }
 
-/* ---------------- หน้าต่าง (modal) ---------------- */
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -585,7 +565,6 @@ label {
   }
 }
 
-/* ---------------- หมุดบนแผนที่ Leaflet (global เพราะ Leaflet สร้าง html เอง) ---------------- */
 .leaflet-container {
   font-family: var(--font-body);
   border-radius: 12px;
@@ -678,14 +657,12 @@ label {
   }
 }
 
-/* หมุดเลือกตำแหน่ง (ลากได้) ตอนเพิ่ม/แก้ไขลูกค้า */
 .pick-marker {
   background: transparent;
   border: none;
   filter: drop-shadow(0 3px 4px rgb(60 35 15 / 0.45));
 }
 
-/* ล้างกรอบ/พื้นขาวเริ่มต้นของ Leaflet divIcon */
 .marker-reset {
   background: transparent;
   border: none;

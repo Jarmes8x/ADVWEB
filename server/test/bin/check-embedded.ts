@@ -1,6 +1,3 @@
-// Test helper: boot a disposable embedded Postgres and run the real
-// check-connection diagnostic against it. Proves the diagnostic works
-// end-to-end without needing Neon credentials.
 import path from 'node:path';
 import { execFile } from 'node:child_process';
 import EmbeddedPostgres from 'embedded-postgres';

@@ -37,7 +37,6 @@ export class Orders implements OnInit {
   formError = '';
   pageError = '';
 
-  /** ลูกค้าคนนี้อยู่ในรัศมีจัดส่ง 3 กม. ไหม (ใช้ปิดตัวเลือกใน dropdown) */
   inDeliveryArea(c: Customer): boolean {
     return isWithinDeliveryArea(c.lat, c.lng);
   }
@@ -79,7 +78,6 @@ export class Orders implements OnInit {
 
   openAddModal() {
     this.editMode = false;
-    // เลือกลูกค้าคนแรกที่อยู่ในพื้นที่จัดส่งไว้ให้ก่อน
     this.selectedCustomerId = this.customers.find(c => this.inDeliveryArea(c))?.id ?? null;
     this.formError = '';
     this.formBoxCount = 1;
@@ -104,7 +102,6 @@ export class Orders implements OnInit {
     this.formError = '';
     try {
       if (this.editMode && this.editingOrderId) {
-        // แก้แค่จำนวนกล่อง (ฟอร์มแก้ไขไม่มีช่องเปลี่ยนลูกค้า) จึงไม่ส่ง customerId
         await this.orderApi.updateOrder(this.editingOrderId, { boxCount: this.formBoxCount });
       } else if (this.selectedCustomerId) {
         await this.orderApi.createOrder({
@@ -118,7 +115,6 @@ export class Orders implements OnInit {
       this.closeModal();
       await this.loadOrders();
     } catch (err) {
-      // เช่น ลูกค้าอยู่นอกพื้นที่จัดส่ง 3 กม. (backend ตอบ 400 พร้อมข้อความ)
       this.formError = (err instanceof HttpErrorResponse && err.error?.error) || 'บันทึกออเดอร์ไม่สำเร็จ';
     }
   }

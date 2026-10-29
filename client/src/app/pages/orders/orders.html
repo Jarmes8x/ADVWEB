@@ -24,7 +24,6 @@
     <span>{{ pageError }}</span>
   </div>
 
-  <!-- ตัวเลขสรุป -->
   <div class="stat-grid">
     <div class="stat">
       <span class="stat-icon blue"><lucide-icon [img]="icons.clipboard" [size]="20"></lucide-icon></span>
@@ -60,7 +59,6 @@
     </div>
   </div>
 
-  <!-- ตารางออเดอร์ -->
   <div class="card">
     <div class="card-header">
       <h3 class="card-title">
@@ -136,7 +134,6 @@
     </div>
   </div>
 
-  <!-- หน้าต่างสร้าง / แก้ไขออเดอร์ -->
   <div class="modal-backdrop" *ngIf="isModalOpen" (click)="closeModal()">
     <div class="modal-card" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
       <div class="modal-header">

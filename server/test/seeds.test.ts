@@ -1,7 +1,3 @@
-/**
- * Seed & initialization tests — exercises initDatabase() directly and the
- * startup binary path via subprocesses for failure modes.
- */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
@@ -38,12 +34,10 @@ test('initDatabase on fresh DB: tables + 13 riders, 60 customers, 30 orders, 14 
            (SELECT COUNT(*)::int FROM users) u`)).rows[0];
   assert.deepEqual(counts, { r: 13, c: 60, o: 30, u: 14 });
 
-  // every customer carries one of the three zones
   const badZones = (await db.query(
     `SELECT COUNT(*)::int c FROM customers WHERE zone NOT IN ('ขามเรียง','ท่าขอนยาง','หน้าป้าย')`
   )).rows[0].c;
   assert.equal(badZones, 0, 'customers missing a valid zone');
-  // seeded logins: admin + rider01..rider13
   const roles = (await db.query(`SELECT role, COUNT(*)::int c FROM users GROUP BY role ORDER BY role`)).rows;
   assert.deepEqual(roles, [{ role: 'admin', c: 1 }, { role: 'rider', c: 13 }]);
 
@@ -59,7 +53,7 @@ test('initDatabase on fresh DB: tables + 13 riders, 60 customers, 30 orders, 14 
 
 test('initDatabase re-run is idempotent (no duplicate seeds)', async () => {
   const { initDatabase, query } = await import('../dbconnect');
-  await initDatabase(); // second run on same DATABASE_URL from previous test
+  await initDatabase();
   const { rows } = await query(`SELECT COUNT(*)::int c FROM riders`);
   assert.equal(rows[0].c, 13);
 });
@@ -67,14 +61,11 @@ test('initDatabase re-run is idempotent (no duplicate seeds)', async () => {
 test('partially seeded DB (1 rider exists): rider seed skipped entirely', async () => {
   const url = await createDb(booted, 'seeds_partial');
   const db = await connectDb(url);
-  // minimal schema then one stray rider
   await db.query(`
     CREATE TABLE riders (id INTEGER PRIMARY KEY, name TEXT NOT NULL, phone TEXT NOT NULL,
       color TEXT NOT NULL, "maxOrders" INTEGER DEFAULT 3, status TEXT DEFAULT 'active');
     INSERT INTO riders (id,name,phone,color) VALUES (99,'stray','p','#000');
   `);
-  // point the already-imported module at... module pool is bound to first URL;
-  // use runScript to init against the other DB in a clean process instead.
   const res = await runScript('test/bin/init-db.ts', { DATABASE_URL: url });
   assert.equal(res.code, 0, res.stderr);
   const riderCount = (await db.query('SELECT COUNT(*)::int c FROM riders')).rows[0].c;
@@ -87,7 +78,6 @@ test('partially seeded DB (1 rider exists): rider seed skipped entirely', async 
 });
 
 test('two concurrent initDatabase() on empty DB — serialized by advisory lock, x5', async () => {
-  // Advisory-lock fix (D3): every run must complete with 0 rejections.
   for (let i = 0; i < 5; i++) {
     const url = await createDb(booted, `seeds_race_${i}`);
     const res = await runScript('test/bin/init-race.ts', { DATABASE_URL: url });
@@ -105,7 +95,6 @@ test('two concurrent initDatabase() on empty DB — serialized by advisory lock,
 });
 
 test('startup without DATABASE_URL exits non-zero with clear message', async () => {
-  // empty strings override any DATABASE_URL leaking from process.env / .env
   const res = await runScript('server.ts', { DATABASE_URL: '', DATABASE_URL_UNPOOLED: '' });
   assert.notEqual(res.code, 0);
   assert.match(res.stderr + res.stdout, /DATABASE_URL is not set/);
@@ -120,8 +109,6 @@ test('startup with unreachable DB exits non-zero', async () => {
 });
 
 test('init failure before first request -> controlled 503 JSON, no worker crash', async () => {
-  // VERCEL=1 path: initDatabase failure must NOT crash the process (D4 fix).
-  // JWT_SECRET is required at import time in production mode — supply a dummy.
   const res = await runScript('test/bin/probe-init-failure.ts', {
     DATABASE_URL: 'postgres://postgres:postgres@localhost:59999/x?sslmode=disable',
     VERCEL: '1',

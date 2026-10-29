@@ -1,7 +1,3 @@
-/**
- * Migration workflow tests: application, idempotent re-run, failed-migration
- * bookkeeping, and schema drift between migrate-script and initDatabase() DDL.
- */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -66,8 +62,6 @@ test('failing migration is NOT recorded and its statements roll back', async () 
   }
 });
 
-// --- drift between migrate path and initDatabase() path ---
-
 async function schemaFingerprint(db: Client) {
   const tables = (await db.query(
     `SELECT table_name FROM information_schema.tables
@@ -112,9 +106,6 @@ test('schema built by migrate equals initDatabase() — fingerprint comparison',
   assert.deepEqual(fm.seqs, fi.seqs, 'sequences differ');
 });
 
-// The runtime schema module must stay byte-equivalent (modulo comments and
-// whitespace) to the canonical migration files — this is the guard that lets
-// initDatabase() and `npm run migrate` share one definition.
 const normalizeSql = (sql: string) =>
   sql.replace(/--[^\n]*/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
 

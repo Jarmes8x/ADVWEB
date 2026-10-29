@@ -1,7 +1,3 @@
-/**
- * JWT auth + authorization tests: login contract, token enforcement,
- * admin-only routes, and per-rider access control.
- */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { bootPg, createDb, connectDb, shutdownPg, startApp, req, login } from './helpers';
@@ -172,7 +168,6 @@ test('GET /riders/:id: rider can read own, 403 for others', async () => {
 });
 
 test('GET /routes/rider/:id: rider limited to own job', async () => {
-  // admin builds a plan so rider 1 may have a route
   await req(base, 'POST', '/routes/optimize', { seed: 0 }, admin);
   assert.equal((await req(base, 'GET', '/routes/rider/5', undefined, rider1)).status, 403);
   const own = await req(base, 'GET', '/routes/rider/1', undefined, rider1);

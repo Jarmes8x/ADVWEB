@@ -43,12 +43,10 @@ export class Customers implements OnInit, AfterViewInit, OnDestroy {
 
   private customerApi = inject(CustomerApi);
 
-  /** ระยะเส้นตรงจากร้านถึงหมุดในฟอร์ม (กม.) */
   get formDistanceKm(): number {
     return distanceFromShopKm(Number(this.formCustomer.lat), Number(this.formCustomer.lng));
   }
 
-  /** หมุดอยู่นอกรัศมีจัดส่ง 3 กม. */
   get formOutsideArea(): boolean {
     return this.formDistanceKm > MAX_DELIVERY_RADIUS_KM;
   }
@@ -87,7 +85,6 @@ export class Customers implements OnInit, AfterViewInit, OnDestroy {
       attribution: '© OpenStreetMap contributors'
     }).addTo(this.map);
 
-    // วงกลมพื้นที่จัดส่ง 3 กม. รอบร้าน (radius ของ L.circle เป็นเมตร)
     L.circle([SHOP_LOCATION.lat, SHOP_LOCATION.lng], {
       radius: MAX_DELIVERY_RADIUS_KM * 1000,
       color: '#e2580e',
@@ -100,7 +97,6 @@ export class Customers implements OnInit, AfterViewInit, OnDestroy {
 
     this.markersLayer.addTo(this.map);
 
-    // Shop Marker
     const shopIcon = L.divIcon({
       html: iconSvg(APP_ICONS.store, 18, '#fff'),
       className: 'custom-shop-marker',
@@ -111,7 +107,6 @@ export class Customers implements OnInit, AfterViewInit, OnDestroy {
       .addTo(this.map)
       .bindPopup('<div class="map-popup-title">ร้านข้าวกล่องเดลิเวอรี่</div><div class="map-popup-row">จุดเริ่มต้นส่ง 11:30 น.</div>');
 
-    // Map click listener for adding/updating coordinates
     this.map.on('click', (e: L.LeafletMouseEvent) => {
       if (this.isModalOpen) {
         this.formCustomer.lat = Number(e.latlng.lat.toFixed(6));
@@ -210,7 +205,6 @@ export class Customers implements OnInit, AfterViewInit, OnDestroy {
   }
 
   async saveCustomer() {
-    // เช็กพื้นที่จัดส่งในหน้าเว็บก่อน (backend เช็กซ้ำอีกครั้ง)
     if (this.formOutsideArea) {
       this.formError = `หมุดอยู่ห่างร้าน ${this.formDistanceKm.toFixed(2)} กม. เกินพื้นที่จัดส่ง ${MAX_DELIVERY_RADIUS_KM} กม.`;
       return;

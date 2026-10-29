@@ -52,10 +52,6 @@ import {
   Zap,
 } from 'lucide-angular';
 
-/**
- * ไอคอนทั้งหมดที่ใช้ในแอป (Lucide) รวมไว้ที่เดียว
- * ใช้ใน html:  <lucide-icon [img]="icons.map" [size]="18"></lucide-icon>
- */
 export const APP_ICONS = {
   banknote: Banknote,
   bike: Bike,
@@ -111,10 +107,6 @@ export const APP_ICONS = {
 
 export type AppIcons = typeof APP_ICONS;
 
-/**
- * แปลงไอคอน Lucide เป็น SVG string
- * ใช้กับหมุดบนแผนที่ Leaflet (divIcon รับได้แค่ html string ใช้ component ไม่ได้)
- */
 export function iconSvg(icon: LucideIconData, size = 16, color = 'currentColor', strokeWidth = 2.2): string {
   const children = icon
     .map(([tag, attrs]) => {
@@ -130,7 +122,6 @@ export function iconSvg(icon: LucideIconData, size = 16, color = 'currentColor',
   );
 }
 
-/** ป้องกันข้อความจากผู้ใช้ไปแทรก HTML ใน popup ของแผนที่ */
 export function escapeHtml(value: unknown): string {
   return String(value ?? '').replace(/[&<>"']/g, (c) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string,

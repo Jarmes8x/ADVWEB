@@ -20,7 +20,7 @@ import { APP_ICONS } from '../../shared/icons';
 export class RiderPortal implements OnInit {
   private riderApi = inject(RiderApi);
   private routePlanApi = inject(RoutePlanApi);
-  auth = inject(Auth); // ใช้ใน html (auth.isAdmin())
+  auth = inject(Auth);
   readonly icons = APP_ICONS;
 
   jobInput: string = '1';
@@ -32,7 +32,6 @@ export class RiderPortal implements OnInit {
   ngOnInit() {
     const user = this.auth.user();
     if (user?.role === 'rider' && user.riderId) {
-      // ไรเดอร์ดูได้เฉพาะใบงานของตัวเอง
       this.jobInput = user.riderId.toString();
     } else {
       this.loadRiders();
@@ -70,7 +69,6 @@ export class RiderPortal implements OnInit {
     return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
   }
 
-  /** จำนวนจุดส่งจริง (ไม่นับร้าน) */
   get deliveryCount(): number {
     return this.currentRoute?.waypoints.filter((w) => w.type === 'delivery').length ?? 0;
   }

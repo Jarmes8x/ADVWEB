@@ -1,9 +1,3 @@
-/**
- * Concurrency & race-condition tests. Disposable embedded PG only.
- * D5: orderNumber uses a dedicated sequence -> parallel creates cannot collide.
- * D6: concurrent simulations are serialized by a transaction-scoped
- *     advisory lock -> both succeed, final state is exactly one simulation.
- */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { bootPg, createDb, connectDb, shutdownPg, startApp, req, login } from './helpers';
@@ -43,7 +37,6 @@ test('concurrent POST /orders x50 x3 runs: all succeed, unique orderNumbers', as
     );
     const nums = results.map((r) => r.body.orderNumber);
     assert.equal(new Set(nums).size, N, `run ${run}: duplicate orderNumbers returned`);
-    // every created order references a real customer and has valid fields
     const orphan = await db.query(
       `SELECT o.id FROM orders o LEFT JOIN customers c ON c.id = o."customerId"
        WHERE c.id IS NULL`

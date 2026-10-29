@@ -1,14 +1,8 @@
-/**
- * Unit tests: road-distance matrix + optimizer reading distances from it.
- * No database or network needed (OSRM is either disabled or unreachable).
- */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Order } from '../model/order';
 import type { Rider } from '../model/rider';
 
-// dbconnect.ts (imported for SHOP_LOCATION) requires DATABASE_URL to exist.
-// The pool never connects in these tests.
 process.env.DATABASE_URL ??= 'postgres://test:test@localhost:5999/unused';
 
 const SHOP = { lat: 16.2465, lng: 103.2505, name: 'ร้านทดสอบ' };
@@ -23,7 +17,6 @@ const order = (id: number, lat: number, lng: number): Order => ({
   lng,
   zone: 'หน้าป้าย'
 });
-// A is nearer to the shop in a straight line (1.05 km) than C (1.26 km)
 const A = order(1, 16.2440, 103.2600);
 const C = order(2, 16.2425, 103.2615);
 const POINTS = [
@@ -37,12 +30,11 @@ test('optimize without a matrix keeps straight-line behaviour (A first)', async 
   const plan = new RouteOptimizerService().optimize([A, C], [rider], SHOP, 0);
   const stops = plan.routes[0].waypoints.filter(w => w.type === 'delivery').map(w => w.orderId);
   assert.deepEqual(stops, [1, 2]);
-  assert.equal(plan.routes[0].totalDistanceKm, 1.28); // 1.05 + 0.23
+  assert.equal(plan.routes[0].totalDistanceKm, 1.28);
 });
 
 test('optimize reads road distances from the matrix (C first, km from matrix)', async () => {
   const { RouteOptimizerService } = await import('../services/route-optimizer');
-  // index 0 = shop, 1 = A, 2 = C. By road, C is closer to the shop.
   const matrix = [
     [0, 5, 1],
     [5, 0, 0.5],
@@ -52,8 +44,8 @@ test('optimize reads road distances from the matrix (C first, km from matrix)', 
   const route = plan.routes[0];
   const stops = route.waypoints.filter(w => w.type === 'delivery').map(w => w.orderId);
   assert.deepEqual(stops, [2, 1]);
-  assert.equal(route.totalDistanceKm, 1.5); // 1 + 0.5
-  assert.equal(route.distanceBoxFee, 6); // 2 * 1.5 km * 2 boxes
+  assert.equal(route.totalDistanceKm, 1.5);
+  assert.equal(route.distanceBoxFee, 6);
 });
 
 test('optimize ignores a matrix of the wrong size', async () => {
@@ -91,7 +83,7 @@ test('unreachable OSRM -> falls back to straight-line instead of failing', async
   const { getRoadDistanceMatrix } = await import('../services/road-distance');
   const prev = { road: process.env.ROAD_DISTANCE, url: process.env.OSRM_URL };
   delete process.env.ROAD_DISTANCE;
-  process.env.OSRM_URL = 'http://127.0.0.1:9'; // nothing listens here
+  process.env.OSRM_URL = 'http://127.0.0.1:9';
   try {
     const { matrix, source } = await getRoadDistanceMatrix(POINTS);
     assert.equal(source, 'straight');

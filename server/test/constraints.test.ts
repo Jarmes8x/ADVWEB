@@ -1,8 +1,3 @@
-/**
- * Database-enforced constraint tests — direct SQL bypassing Express validation.
- * Also documents intentional schema gaps (no FK on assignedRiderId, free-form
- * status/orderTime) as characterized behavior, not silently fixed.
- */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { bootPg, createDb, connectDb, shutdownPg, runScript } from './helpers';
@@ -118,8 +113,6 @@ test('failed INSERT leaves no partial row', async () => {
   const after = (await db.query(`SELECT COUNT(*)::int c FROM orders`)).rows[0].c;
   assert.equal(after, before);
 });
-
-// --- Documented intentional gaps (characterization, NOT correctness proof) ---
 
 test('GAP: assignedRiderId has no FK — orphan rider ids are accepted', async () => {
   const r = await db.query(

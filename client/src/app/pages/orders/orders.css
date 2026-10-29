@@ -37,7 +37,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* ตัวเลือกจำนวนกล่อง แบบปุ่มใหญ่กดง่าย */
 .box-picker {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

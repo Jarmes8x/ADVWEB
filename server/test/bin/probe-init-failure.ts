@@ -1,5 +1,3 @@
-// Test helper: characterize the HTTP response when dbReady is rejected.
-// VERCEL=1 prevents app.listen; we attach the exported app to a manual server.
 import http from 'node:http';
 
 async function main() {
@@ -12,7 +10,6 @@ async function main() {
   await new Promise<void>((r) => server.listen(0, r));
   const port = (server.address() as any).port;
 
-  // give initDatabase a moment to fail
   await new Promise((r) => setTimeout(r, 3000));
 
   const res = await fetch(`http://localhost:${port}/api/customers`);

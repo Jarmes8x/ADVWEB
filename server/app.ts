@@ -11,7 +11,6 @@ import { router as routes } from './controller/routes';
 
 export const app = express();
 
-// Only allow known frontends. Set CORS_ORIGINS as a comma-separated list on Vercel.
 const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:4200')
   .split(',')
   .map(o => o.trim())
@@ -20,10 +19,6 @@ const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:4200')
 app.use(cors({ origin: allowedOrigins }));
 app.use(express.json({ limit: '100kb' }));
 
-// Database readiness gate.
-// The promise always resolves (never rejects), so a failed init can never
-// become an unhandled rejection. On failure the promise resets so the next
-// request retries initialization (e.g. after transient DB unavailability).
 let initPromise: Promise<boolean> | null = null;
 
 export function ensureDb(): Promise<boolean> {
@@ -48,20 +43,15 @@ app.use((req, res, next) => {
   });
 });
 
-// Public endpoints
 app.use('/', index);
 app.use('/api/auth', auth);
 
-// Everything below requires a valid token
 app.use('/api', requireAuth);
 
-// Admin only
 app.use('/api/customers', requireRole('admin'), customers);
 app.use('/api/orders', requireRole('admin'), orders);
 
-// Admin + rider (per-rider checks happen inside the routers)
 app.use('/api/riders', requireRole('admin', 'rider'), riders);
 app.use('/api/routes', requireRole('admin', 'rider'), routes);
 
-// Vercel ใช้ app ที่ export ออกไปเป็น serverless function
 export default app;

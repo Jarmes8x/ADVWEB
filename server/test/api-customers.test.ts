@@ -1,7 +1,3 @@
-/**
- * CRUD + API integration tests for /api/customers against a disposable
- * embedded Postgres with the real seeded app (admin JWT required).
- */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { bootPg, createDb, connectDb, shutdownPg, startApp, req, login } from './helpers';
@@ -15,7 +11,7 @@ let admin: string;
 before(async () => {
   const booted = await bootPg(TAG, 56120);
   const url = await createDb(booted, 'apicust_t');
-  base = await startApp(url, 3310); // seeds 13 riders / 60 customers / 30 orders / 14 users
+  base = await startApp(url, 3310);
   admin = await login(base, 'admin', 'admin1234');
   db = await connectDb(url);
 });
@@ -23,7 +19,7 @@ before(async () => {
 after(async () => {
   await db.end();
   await shutdownPg(TAG);
-  process.exit(0); // app server + pool keep handles open; subprocess must exit
+  process.exit(0);
 });
 
 test('GET /customers returns seeded list, id DESC', async () => {
@@ -109,16 +105,16 @@ test('PUT /customers/:id partial body -> 400, row unchanged', async () => {
 test('PUT /customers/:id validation matrix -> 400 without touching the row', async () => {
   const created = (await req(base, 'POST', '/customers', { name: 'M', phone: 'P', address: 'Addr', lat: 16.25, lng: 103.25 }, admin)).body;
   const bad = [
-    {},                                                    // empty body
-    { phone: 'p', address: 'a', lat: 1, lng: 2 },          // missing name
-    { name: 'n', address: 'a', lat: 1, lng: 2 },           // missing phone
-    { name: 'n', phone: 'p', lat: 1, lng: 2 },             // missing address
-    { name: 'n', phone: 'p', address: 'a', lng: 2 },       // missing lat
-    { name: 'n', phone: 'p', address: 'a', lat: 1 },       // missing lng
-    { name: null, phone: 'p', address: 'a', lat: 1, lng: 2 },          // null
-    { name: '', phone: 'p', address: 'a', lat: 1, lng: 2 },            // empty string
-    { name: 'n', phone: 'p', address: 'a', lat: 'abc', lng: 2 },       // wrong type
-    { name: 'n', phone: 'p', address: 'a', lat: 1, lng: 'x' },         // wrong type
+    {},
+    { phone: 'p', address: 'a', lat: 1, lng: 2 },
+    { name: 'n', address: 'a', lat: 1, lng: 2 },
+    { name: 'n', phone: 'p', lat: 1, lng: 2 },
+    { name: 'n', phone: 'p', address: 'a', lng: 2 },
+    { name: 'n', phone: 'p', address: 'a', lat: 1 },
+    { name: null, phone: 'p', address: 'a', lat: 1, lng: 2 },
+    { name: '', phone: 'p', address: 'a', lat: 1, lng: 2 },
+    { name: 'n', phone: 'p', address: 'a', lat: 'abc', lng: 2 },
+    { name: 'n', phone: 'p', address: 'a', lat: 1, lng: 'x' },
   ];
   for (const [i, body] of bad.entries()) {
     const { status } = await req(base, 'PUT', `/customers/${created.id}`, body, admin);

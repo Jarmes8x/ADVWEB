@@ -12,7 +12,6 @@ interface UserRow {
   riderId: number | null;
 }
 
-// POST /api/auth/login - Exchange username/password for a JWT
 router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body ?? {};
@@ -22,7 +21,6 @@ router.post('/login', async (req, res) => {
 
     const { rows } = await query('SELECT * FROM users WHERE username = $1', [username.trim()]);
     const row = rows[0] as UserRow | undefined;
-    // Same message for unknown user and wrong password, so usernames can't be probed
     if (!row || !verifyPassword(password, row.passwordHash)) {
       return res.status(401).json({ error: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' });
     }
@@ -34,7 +32,6 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// POST /api/auth/register/customer - Create a customer account and profile
 router.post('/register/customer', async (req, res) => {
   try {
     const { name, phone, address, username, password } = req.body ?? {};
@@ -104,7 +101,6 @@ router.post('/register/customer', async (req, res) => {
   }
 });
 
-// GET /api/auth/me - Return the user attached to the current token
 router.get('/me', requireAuth, async (req, res) => {
   try {
     if (req.user?.role !== 'customer') {

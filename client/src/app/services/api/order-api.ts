@@ -36,14 +36,12 @@ export class OrderApi {
     return response as { success: boolean };
   }
 
-  /** จำลองออเดอร์มื้อเที่ยง (ไม่ส่ง count = server สุ่ม 28-35 รายการ) */
   public async simulateOrders(count?: number) {
     const url = `${this.apiEndpoint}/orders/simulate`;
     const response = await lastValueFrom(this.http.post(url, { count }));
     return response as { message: string; orders: Order[] };
   }
 
-  /** ล้างออเดอร์ทั้งหมด */
   public async clearOrders() {
     const url = `${this.apiEndpoint}/orders`;
     const response = await lastValueFrom(this.http.delete(url));

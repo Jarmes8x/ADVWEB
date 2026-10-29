@@ -1,11 +1,3 @@
-/**
- * Applies SQL migrations from server/migrations/ to the target database.
- *
- * Uses DATABASE_URL_UNPOOLED (Neon direct endpoint) when available,
- * falling back to DATABASE_URL. Migrations are tracked in _migrations.
- *
- *   npm run migrate
- */
 import 'dotenv/config';
 import fs from 'fs';
 import path from 'path';
@@ -34,10 +26,6 @@ async function main() {
   await client.connect();
 
   try {
-    // Session-level advisory lock: concurrent `npm run migrate` invocations
-    // serialize here — a second run waits for the first, then sees its
-    // migrations already applied and exits cleanly. Session locks release
-    // automatically if a holder crashes.
     await client.query('SELECT pg_advisory_lock($1)', [MIGRATE_LOCK_KEY]);
 
     const { rows: [ident] } = await client.query<{ db: string; usr: string }>(

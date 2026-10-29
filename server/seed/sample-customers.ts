@@ -1,11 +1,5 @@
 import { Zone } from '../model/zones';
 
-// Sample dorm customers, 20 per delivery zone.
-// Dorm names are sample data. Coordinates are placed inside each zone's real area
-// (based on OpenStreetMap: บ้านท่าขอนยาง 16.2348,103.2660 / บ้านขามเรียง 16.2529,103.2329 /
-// มมส. campus 16.2470,103.2505), not the exact location of a real building.
-// To use exact positions, edit lat/lng here or move the pin on the customers page.
-
 interface DormSeed {
   dorm: string;
   zone: Zone;
@@ -13,9 +7,8 @@ interface DormSeed {
   lng: number;
 }
 
-// Deterministic spread of points around a zone centre so every reseed gives the same map
 function spread(names: string[], zone: Zone, centerLat: number, centerLng: number, radiusLat: number, radiusLng: number): DormSeed[] {
-  const golden = Math.PI * (3 - Math.sqrt(5)); // sunflower layout: even, non-overlapping spacing
+  const golden = Math.PI * (3 - Math.sqrt(5));
   return names.map((dorm, i) => {
     const r = Math.sqrt((i + 0.5) / names.length);
     const theta = i * golden;
@@ -28,7 +21,6 @@ function spread(names: string[], zone: Zone, centerLat: number, centerLng: numbe
   });
 }
 
-// ท่าขอนยาง: around บ้านท่าขอนยาง, south-east of campus (city side, bus lines B/C)
 const THA_KHON_YANG = spread([
   'หอพัก The Iris (ดิ ไอริส)',
   'หอพัก V-Home (วีโฮม)',
@@ -52,7 +44,6 @@ const THA_KHON_YANG = spread([
   'หอพัก Baan Tonmai (บ้านต้นไม้)'
 ], 'ท่าขอนยาง', 16.2360, 103.2635, 0.0050, 0.0060);
 
-// ขามเรียง: around บ้านขามเรียง, north-west of campus (quiet village side)
 const KHAM_RIANG = spread([
   'หอพัก U-Sabai (อยู่สบาย)',
   'หอพัก The Palm Residence (เดอะ ปาล์ม เรสซิเดนซ์)',
@@ -76,7 +67,6 @@ const KHAM_RIANG = spread([
   'หอพัก Baan Rim Klong (บ้านริมคลอง)'
 ], 'ขามเรียง', 16.2525, 103.2375, 0.0045, 0.0055);
 
-// หน้าป้าย / หน้า ม.: east edge of campus, walking distance to the main gate
 const NA_PAI = spread([
   'หอพัก The Letter (เดอะ เล็ตเตอร์)',
   'หอพัก U-Center (ยู เซ็นเตอร์)',
@@ -106,7 +96,6 @@ const ZONE_LABEL: Record<Zone, string> = {
   'หน้าป้าย': 'หน้าป้าย มมส. ต.ขามเรียง'
 };
 
-// One customer (resident) per dorm; phone numbers are placeholders
 export const SAMPLE_CUSTOMERS = [...THA_KHON_YANG, ...KHAM_RIANG, ...NA_PAI].map((d, i) => ({
   name: `ลูกค้า ${d.dorm.replace(/^หอพัก /, '').replace(/ \(.*\)$/, '')}`,
   phone: `080-000-${(i + 1).toString().padStart(4, '0')}`,

@@ -21,7 +21,6 @@ declare global {
 
 const isProduction = !!process.env.VERCEL || process.env.NODE_ENV === 'production';
 
-// Fail fast in production: a missing secret would let anyone forge tokens
 if (isProduction && !process.env.JWT_SECRET) {
   throw new Error('JWT_SECRET environment variable is required in production');
 }
@@ -32,7 +31,6 @@ export function signToken(user: AuthUser): string {
   return jwt.sign(user, JWT_SECRET, { expiresIn: TOKEN_TTL, algorithm: 'HS256' });
 }
 
-// Password hashing with Node's built-in scrypt (no native dependency needed)
 export function hashPassword(password: string): string {
   const salt = crypto.randomBytes(16).toString('hex');
   const hash = crypto.scryptSync(password, salt, 64).toString('hex');
@@ -75,13 +73,11 @@ export function requireRole(...roles: Role[]) {
   };
 }
 
-// Riders may only access their own riderId; admins may access any
 export function canAccessRider(user: AuthUser | undefined, riderId: number): boolean {
   if (!user) return false;
   return user.role === 'admin' || user.riderId === riderId;
 }
 
-// Log the real error server-side, return a generic message to the client
 export function sendServerError(res: Response, error: unknown) {
   console.error(error);
   res.status(500).json({ error: 'เกิดข้อผิดพลาดภายในระบบ' });

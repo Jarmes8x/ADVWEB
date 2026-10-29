@@ -1,14 +1,3 @@
-/**
- * Read-only verification of the configured PostgreSQL/Neon target.
- *
- * Confirms the database the app would actually use contains the required
- * schema objects and reports table row counts — without writing anything.
- * Prints the database/user identity (never credentials) so the operator can
- * confirm the intended Neon project/branch is selected.
- *
- *   npm run check:target        (uses DATABASE_URL)
- *   DATABASE_URL_UNPOOLED only: set VERIFY_USE_UNPOOLED=1
- */
 import 'dotenv/config';
 import { Client } from 'pg';
 
@@ -100,8 +89,6 @@ async function main() {
       const { rows: [ssl] } = await client.query(`SELECT ssl_is_used() AS used`);
       console.log(`Session TLS: ${ssl.used ? 'yes' : 'terminated upstream (Neon pooler)'}`);
     } catch {
-      // ssl_is_used() unavailable through some proxies/poolers — check-connection.ts
-      // already proves the TLS handshake on the client side.
       console.log('Session TLS: ssl_is_used() unavailable on this endpoint (client-side TLS verified by check:db)');
     }
   } finally {

@@ -5,7 +5,6 @@ import { Customer } from '../model/customer';
 import { isZone, inferZone } from '../model/zones';
 import { MAX_DELIVERY_RADIUS_KM, distanceFromShopKm } from '../services/route-optimizer';
 
-// บ้านต้องอยู่ในรัศมีจัดส่ง 3 กม. จากร้าน ถ้าเกินคืนข้อความ error (ใช้ทั้งเพิ่มและแก้ไข)
 function outsideDeliveryAreaError(lat: number, lng: number): string | null {
   const km = distanceFromShopKm(lat, lng);
   if (km <= MAX_DELIVERY_RADIUS_KM) return null;
@@ -14,7 +13,6 @@ function outsideDeliveryAreaError(lat: number, lng: number): string | null {
 
 export const router = express.Router();
 
-// GET all customers
 router.get('/', async (req, res) => {
   try {
     const { rows } = await query('SELECT * FROM customers ORDER BY id DESC');
@@ -24,7 +22,6 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET single customer
 router.get('/:id', async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -41,7 +38,6 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// CREATE customer
 router.post('/', async (req, res) => {
   try {
     const { name, phone, address, lat, lng, zone }: Customer = req.body;
@@ -67,7 +63,6 @@ router.post('/', async (req, res) => {
   }
 });
 
-// UPDATE customer (full replacement — every required field must be sent)
 router.put('/:id', async (req, res) => {
   try {
     const { name, phone, address, lat, lng, zone }: Customer = req.body;
@@ -81,7 +76,6 @@ router.put('/:id', async (req, res) => {
     if (zone !== undefined && !isZone(zone)) {
       return res.status(400).json({ error: 'zone must be one of: ขามเรียง, ท่าขอนยาง, หน้าป้าย' });
     }
-    // ลูกค้าที่ไม่มีอยู่ตอบ 404 ก่อน แล้วค่อยเช็กพื้นที่จัดส่ง
     if (!(await query('SELECT 1 FROM customers WHERE id = $1', [id])).rows.length) {
       return res.status(404).json({ error: 'Customer not found' });
     }
@@ -105,7 +99,6 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// DELETE customer (cascades their orders atomically)
 router.delete('/:id', async (req, res) => {
   try {
     const id = Number(req.params.id);

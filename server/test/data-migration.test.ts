@@ -1,7 +1,3 @@
-/**
- * SQLite -> PostgreSQL data transfer tests (scripts/migrate-data.ts).
- * Uses synthetic node:sqlite fixtures — never real data.
- */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
@@ -17,7 +13,6 @@ let fixtureDir: string;
 
 function makeSqlite(file: string, opts: { orphan?: boolean; newSchema?: boolean } = {}) {
   const db = new DatabaseSync(file);
-  // newSchema: post-baseline SQLite files have customers.zone and a users table.
   db.exec(`
     CREATE TABLE customers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, phone TEXT, address TEXT, lat REAL, lng REAL${opts.newSchema ? ', zone TEXT' : ''});
     CREATE TABLE orders (id INTEGER PRIMARY KEY AUTOINCREMENT, orderNumber TEXT UNIQUE, customerId INTEGER, boxCount INTEGER, orderTime TEXT, status TEXT, assignedRiderId INTEGER, deliverySequence INTEGER);
@@ -68,7 +63,6 @@ test('data transfer preserves rows, ids, relationships; advances sequences', asy
     DATABASE_URL: url, DATABASE_URL_UNPOOLED: url, SQLITE_PATH: sqliteFile
   });
   assert.equal(res.code, 0, res.stderr);
-  // console.log object output may carry ANSI colors under FORCE_COLOR/TTY — normalize before matching.
   const cleanOut = stripAnsi(res.stdout);
   assert.match(cleanOut, /Target rows.*customers: 3.*riders: 2.*orders: 3/s);
 
@@ -81,7 +75,6 @@ test('data transfer preserves rows, ids, relationships; advances sequences', asy
   assert.equal(o1.status, 'assigned');
   assert.equal(o1.assignedRiderId, 1);
   assert.equal(o1.orderTime, '10:05:00');
-  // sequence advanced: next auto insert gets id > max
   const next = await db.query(
     `INSERT INTO orders ("orderNumber","customerId","boxCount") VALUES ('ORD-NEW-1',1,1) RETURNING id`);
   assert.ok(next.rows[0].id > 3, `sequence not advanced — got id ${next.rows[0].id}`);
@@ -107,7 +100,6 @@ test('new-schema transfer preserves zone and migrates users', async () => {
     { username: 'admin', role: 'admin', riderId: null },
     { username: 'rider01', role: 'rider', riderId: 1 }
   ]);
-  // users identity sequence advanced past imported ids
   const nextU = await db.query(
     `INSERT INTO users (username,"passwordHash",role) VALUES ('u_new','h','rider') RETURNING id`);
   assert.ok(nextU.rows[0].id > 2, `users sequence not advanced — got ${nextU.rows[0].id}`);
@@ -116,7 +108,7 @@ test('new-schema transfer preserves zone and migrates users', async () => {
 
 test('old-schema transfer leaves customers.zone at default', async () => {
   const sqliteFile = path.join(fixtureDir, 'oldschema.sqlite');
-  makeSqlite(sqliteFile); // no zone column, no users table
+  makeSqlite(sqliteFile);
   const url = await createDb(booted, 'datamig_old');
   await runScript('scripts/migrate.ts', { DATABASE_URL: url, DATABASE_URL_UNPOOLED: url });
 

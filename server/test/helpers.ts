@@ -1,10 +1,3 @@
-/**
- * Shared test infrastructure.
- *
- * Each *.test.ts file runs in its own node --test subprocess, so every file
- * boots its own disposable EmbeddedPostgres (own data dir + own port) and can
- * import the app with a unique DATABASE_URL.
- */
 import EmbeddedPostgres from 'embedded-postgres';
 import { Client } from 'pg';
 import { execFile } from 'node:child_process';
@@ -23,11 +16,8 @@ interface Booted {
 
 const instances = new Map<string, Booted>();
 
-// Set when startApp() imported server.ts into THIS process, so shutdownPg()
-// knows the app's pg.Pool must be drained before the embedded server stops.
 let appImported = false;
 
-/** Start (once per process) a disposable embedded Postgres. */
 export async function bootPg(tag: string, port: number): Promise<Booted> {
   const existing = instances.get(tag);
   if (existing) return existing;
@@ -58,34 +48,27 @@ export async function bootPg(tag: string, port: number): Promise<Booted> {
   return booted;
 }
 
-/** Create a fresh empty database on the booted instance; returns its URL. */
 export async function createDb(booted: Booted, name: string): Promise<string> {
   await booted.admin.query(`DROP DATABASE IF EXISTS "${name}" WITH (FORCE)`);
   await booted.admin.query(`CREATE DATABASE "${name}"`);
   return `postgres://postgres:${PG_PASSWORD}@localhost:${booted.port}/${name}`;
 }
 
-/** Open a dedicated Client to a database on the booted instance. */
 export async function connectDb(url: string): Promise<Client> {
   const c = new Client({ connectionString: url });
   await c.connect();
   return c;
 }
 
-/** Stop embedded PG and remove the data dir. Call in after(). */
 export async function shutdownPg(tag: string): Promise<void> {
   const b = instances.get(tag);
   if (!b) return;
   instances.delete(tag);
-  // Drain the app's pool FIRST: stopping the PG server while the pool still
-  // holds idle clients emits 'error' (ECONNRESET) on each of them — teardown
-  // noise that looks like a real connection failure.
   if (appImported) {
     try { const { pool } = await import('../dbconnect'); await pool.end(); } catch {}
   }
   try { await b.admin.end(); } catch {}
   try { await b.pg.stop(); } catch {}
-  // Windows may hold file locks briefly after pg stops
   for (let i = 0; i < 5; i++) {
     try {
       fs.rmSync(b.dir, { recursive: true, force: true });
@@ -96,19 +79,13 @@ export async function shutdownPg(tag: string): Promise<void> {
   }
 }
 
-/**
- * Point the app at `url` and import server.ts (which listens on `port`).
- * Must be called before ANY import of the app modules in this process.
- */
 export async function startApp(url: string, port: number): Promise<string> {
   process.env.DATABASE_URL = url;
   process.env.PORT = String(port);
-  // เทสต์ต้องได้ผลเหมือนเดิมทุกครั้งและรันได้แบบไม่มีเน็ต: ใช้ระยะเส้นตรง ไม่ถาม OSRM
   process.env.ROAD_DISTANCE ??= 'off';
   await import('../server');
   appImported = true;
   const base = `http://localhost:${port}/api`;
-  // health endpoint itself waits on dbReady via middleware
   for (let i = 0; i < 100; i++) {
     try {
       const r = await fetch(`${base}/health`);
@@ -116,8 +93,6 @@ export async function startApp(url: string, port: number): Promise<string> {
     } catch {}
     await sleep(100);
   }
-  // warm the pool + prove auth seeding: login succeeds only once initDatabase
-  // has created the users table and seeded the admin account.
   for (let i = 0; i < 50; i++) {
     try {
       const r = await fetch(`${base}/auth/login`, {
@@ -132,7 +107,6 @@ export async function startApp(url: string, port: number): Promise<string> {
   throw new Error(`app did not become ready on :${port}`);
 }
 
-/** POST /api/auth/login; returns the JWT (throws on non-200). */
 export async function login(base: string, username: string, password: string): Promise<string> {
   const res = await fetch(`${base}/auth/login`, {
     method: 'POST',
@@ -154,7 +128,6 @@ export interface ScriptResult {
   stderr: string;
 }
 
-/** Run a repo script (scripts/*.ts or server.ts) in a child node+tsx process. */
 export function runScript(scriptRelPath: string, env: NodeJS.ProcessEnv): Promise<ScriptResult> {
   return new Promise((resolve) => {
     execFile(
@@ -169,7 +142,6 @@ export function runScript(scriptRelPath: string, env: NodeJS.ProcessEnv): Promis
   });
 }
 
-/** POST/PUT/DELETE helpers returning {status, body}. Pass `token` for authenticated endpoints. */
 export async function req(
   base: string,
   method: string,
@@ -196,8 +168,6 @@ export function migrationsDir(): string {
   return path.join(SERVER_DIR, 'migrations');
 }
 
-/** Strip ANSI escape codes (FORCE_COLOR/TTY environments colorize console.log output). */
 export function stripAnsi(s: string): string {
-  // eslint-disable-next-line no-control-regex
   return s.replace(/[\u001b\u009b][[\]()#;?]*(?:(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]|[0-9]{1,3}(?:;[0-9]{1,3}){0,3}m)/g, '');
 }

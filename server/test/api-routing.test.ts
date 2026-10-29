@@ -1,7 +1,3 @@
-/**
- * API tests for /api/riders and /api/routes (optimization + persistence).
- * Admin JWT required for optimize/current; rider routes allow own rider.
- */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { bootPg, createDb, connectDb, shutdownPg, startApp, req, login } from './helpers';
@@ -49,8 +45,8 @@ test('GET /riders unknown -> 404; malformed/decimal/letterless-digitless -> 404'
   assert.equal((await req(base, 'GET', '/riders/99', undefined, admin)).status, 404);
   assert.equal((await req(base, 'GET', '/riders/TASK-99', undefined, admin)).status, 404);
   assert.equal((await req(base, 'GET', '/riders/abc', undefined, admin)).status, 404);
-  assert.equal((await req(base, 'GET', '/riders/1.5', undefined, admin)).status, 404); // not pure int, no letters
-  assert.equal((await req(base, 'GET', '/riders/TASK', undefined, admin)).status, 404);  // letters but no digits
+  assert.equal((await req(base, 'GET', '/riders/1.5', undefined, admin)).status, 404);
+  assert.equal((await req(base, 'GET', '/riders/TASK', undefined, admin)).status, 404);
   assert.equal((await req(base, 'GET', '/riders/--', undefined, admin)).status, 404);
 });
 
@@ -67,12 +63,10 @@ test('POST /routes/optimize returns plan and persists assignments', async () => 
   assert.ok(dbOrders.every((o) => o.status === 'assigned'), 'not all orders marked assigned');
   assert.ok(dbOrders.every((o) => o.assignedRiderId !== null && o.deliverySequence !== null));
 
-  // each route: <=3 orders (rider cap), sequence 1..n
   for (const route of body.routes) {
     assert.ok(route.orderCount <= 3, `rider ${route.riderId} has ${route.orderCount} orders`);
     const seqs = route.orders.map((o: any) => o.deliverySequence).sort((a: number, b: number) => a - b);
     assert.deepEqual(seqs, seqs.map((_: number, i: number) => i + 1));
-    // DB-persisted riderId matches plan
     for (const o of route.orders) {
       const row = dbOrders.find((d) => d.id === o.id);
       assert.equal(row.assignedRiderId, route.riderId);
@@ -104,11 +98,10 @@ test('GET /routes/current returns plan shape; rider view works', async () => {
 });
 
 test('GET /routes/rider/:id for unassigned rider -> 404', async () => {
-  // rider 13 unlikely assigned when >13 clusters? just use an id with no route
   const plan = (await req(base, 'GET', '/routes/current', undefined, admin)).body;
   const used = new Set(plan.routes.map((r: any) => r.riderId));
   const free = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].find((i) => !used.has(i));
-  if (free === undefined) return; // all riders assigned — skip gracefully
+  if (free === undefined) return;
   const { status, body } = await req(base, 'GET', `/routes/rider/${free}`, undefined, admin);
   assert.equal(status, 404);
   assert.match(body.error, /ไม่พบใบงาน/);

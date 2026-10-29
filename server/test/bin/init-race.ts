@@ -1,4 +1,3 @@
-// Test helper: invoke initDatabase() twice concurrently, print JSON outcome.
 import { initDatabase, pool } from '../../dbconnect';
 
 Promise.allSettled([initDatabase(), initDatabase()])

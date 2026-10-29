@@ -1,9 +1,3 @@
-/**
- * Neon-specific integration tests — OPT-IN ONLY.
- * Enable by setting NEON_TEST_URL (pooled) and optionally
- * NEON_TEST_URL_UNPOOLED (direct) to a dedicated TEST branch/database.
- * Never point these at production. All tests SKIP when the env vars are unset.
- */
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { Client } from 'pg';
@@ -53,7 +47,7 @@ describe('neon integration (opt-in)', { skip: !NEON_ENABLED && 'set NEON_TEST_UR
     await c.query(`INSERT INTO tt (v) VALUES ('a'),('b')`);
     const { rows } = await c.query(`SELECT COUNT(*)::int c FROM tt`);
     assert.equal(rows[0].c, 2);
-    await c.query('ROLLBACK'); // temp table discarded with session anyway
+    await c.query('ROLLBACK');
     await c.end();
   });
 

@@ -1,7 +1,3 @@
-/**
- * CRUD + API integration tests for /api/orders (incl. simulate + clear).
- * Admin JWT required — seeded DB has 30 orders.
- */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { bootPg, createDb, connectDb, shutdownPg, startApp, req, login } from './helpers';
@@ -45,7 +41,6 @@ test('POST /orders valid -> 201, pending, HH:MM:SS orderTime, unique number', as
   assert.match(body.orderTime, /^\d{2}:\d{2}:\d{2}$/);
   assert.match(body.orderNumber, /^ORD-\d+-\d+$/);
   assert.equal(body.customerName.length > 0, true, 'join fields missing');
-  // stored row matches
   const row = (await db.query('SELECT * FROM orders WHERE id=$1', [body.id])).rows[0];
   assert.equal(row.customerId, 1);
   assert.equal(row.boxCount, 2);

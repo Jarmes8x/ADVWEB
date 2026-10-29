@@ -1,10 +1,3 @@
-/**
- * Local smoke test: boots an embedded PostgreSQL instance (no Postgres
- * install needed), runs the schema setup, starts the Express app and
- * exercises the main endpoints (login + admin JWT).
- *
- *   npm run test:smoke
- */
 import path from 'path';
 import fs from 'fs';
 import EmbeddedPostgres from 'embedded-postgres';
@@ -35,9 +28,8 @@ async function main() {
   const databaseUrl = `postgres://postgres:postgres@localhost:${PORT}/riderdb?sslmode=disable`;
   process.env.DATABASE_URL = databaseUrl;
   process.env.PORT = String(APP_PORT);
-  process.env.ROAD_DISTANCE ??= 'off'; // ไม่ถาม OSRM ระหว่างเทสต์
+  process.env.ROAD_DISTANCE ??= 'off';
 
-  // Verify migrations apply cleanly first (schema_migrations tracking).
   const mig = new Client({ connectionString: databaseUrl, ssl: false });
   await mig.connect();
   const migrationsDir = path.resolve(__dirname, '../migrations');
@@ -49,13 +41,10 @@ async function main() {
   }
   await mig.end();
 
-  // Import the app after env vars are set; it listens on PORT automatically.
   const { pool } = await import('../dbconnect');
   await import('../server');
 
   const base = `http://localhost:${APP_PORT}/api`;
-  // The server only listens after initDatabase() finishes (schema + seeds +
-  // password hashing take a few seconds on embedded PG) — poll until up.
   let health: any = null;
   for (let i = 0; i < 100; i++) {
     try {
@@ -72,7 +61,6 @@ async function main() {
 
   check('health', health?.status === 'ok');
 
-  // JWT login -> admin token for protected endpoints
   const loginRes = await fetch(`${base}/auth/login`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username: 'admin', password: 'admin1234' })
@@ -83,7 +71,6 @@ async function main() {
   const jsonAuthed = { 'Content-Type': 'application/json', ...authed };
   const getJson = async (p: string) => (await fetch(`${base}${p}`, { headers: authed })).json();
 
-  // unauthenticated access must be rejected
   const noAuth = await fetch(`${base}/customers`);
   check('customers requires auth (401)', noAuth.status === 401, noAuth.status);
 
@@ -103,7 +90,6 @@ async function main() {
   check('order join fields', orders[0].customerName !== undefined && orders[0].orderNumber !== undefined);
   check('order zone field', orders[0].zone !== undefined);
 
-  // CRUD
   const created = await (await fetch(`${base}/customers`, {
     method: 'POST', headers: jsonAuthed,
     body: JSON.stringify({ name: 'Test Customer', phone: '080-000-0000', address: 'Somewhere', lat: 16.25, lng: 103.25 })
@@ -129,7 +115,6 @@ async function main() {
   });
   check('boxCount validation 400', badOrder.status === 400);
 
-  // Route optimization persists assignments
   const plan = await (await fetch(`${base}/routes/optimize`, {
     method: 'POST', headers: jsonAuthed, body: JSON.stringify({ seed: 0 })
   })).json();
@@ -142,7 +127,6 @@ async function main() {
   const riderJob = await getJson('/routes/rider/1');
   check('rider route view', riderJob.route && riderJob.route.riderId === 1, riderJob);
 
-  // Rider token cannot reach admin endpoints
   const riderLogin = await (await fetch(`${base}/auth/login`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username: 'rider01', password: 'rider1234' })
@@ -152,13 +136,11 @@ async function main() {
   });
   check('rider token blocked from /customers (403)', riderForbidden.status === 403, riderForbidden.status);
 
-  // Simulate regenerates orders atomically
   const sim = await (await fetch(`${base}/orders/simulate`, {
     method: 'POST', headers: jsonAuthed, body: JSON.stringify({ count: 30 })
   })).json();
   check('simulate 30 orders', Array.isArray(sim.orders) && sim.orders.length === 30, sim.message);
 
-  // DELETE customer cascades orders (inside transaction)
   const del = await (await fetch(`${base}/customers/${created.id}`, { method: 'DELETE', headers: authed })).json();
   check('delete customer', del.success === true, del);
 

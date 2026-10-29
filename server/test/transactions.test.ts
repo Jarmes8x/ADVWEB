@@ -1,7 +1,3 @@
-/**
- * Transaction & rollback tests — verifies persisted state after failures,
- * using BEFORE-trigger failure injection through the real API paths.
- */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { bootPg, createDb, connectDb, shutdownPg, startApp, req, login } from './helpers';
@@ -40,8 +36,6 @@ async function installTrigger(table: string, name: string, when: string) {
 async function dropTrigger(table: string, name: string) {
   await db.query(`DROP TRIGGER IF EXISTS ${name} ON ${table}`);
 }
-
-// --- direct transaction() helper ---
 
 test('transaction() commits all writes on success', async () => {
   const n = await conn.transaction(async (client) => {
@@ -82,8 +76,6 @@ test('pool remains usable after a failed transaction', async () => {
   assert.equal(rows[0].ok, 1);
 });
 
-// --- rollback through real API paths (trigger-injected failures) ---
-
 test('customer delete: failure AFTER deleting orders rolls back the order delete', async () => {
   const cust = (await req(base, 'POST', '/customers', { name: 'TDel', phone: 'p', address: 'a', lat: 16.25, lng: 103.25 }, admin)).body;
   const ord = (await req(base, 'POST', '/orders', { customerId: cust.id, boxCount: 1 }, admin)).body;
@@ -96,19 +88,15 @@ test('customer delete: failure AFTER deleting orders rolls back the order delete
     await dropTrigger('customers', 'trg_fail_cust_del');
   }
 
-  // If rollback failed, the order would already be gone.
   const stillThere = (await db.query('SELECT COUNT(*)::int c FROM orders WHERE id=$1', [ord.id])).rows[0].c;
   assert.equal(stillThere, 1, 'order was deleted even though customer delete failed — NOT atomic');
-  // now succeeds
   assert.equal((await req(base, 'DELETE', `/customers/${cust.id}`, undefined, admin)).status, 200);
 });
 
 test('simulate: mid-batch INSERT failure restores previous orders', async () => {
-  // give the DB a known pre-state
   const pre = (await req(base, 'GET', '/orders', undefined, admin)).body;
   const preNums = pre.map((o: any) => o.orderNumber).sort();
 
-  // fail when the 5th simulated order is inserted
   await db.query(`
     CREATE OR REPLACE FUNCTION fail_sim() RETURNS trigger AS $$
     BEGIN IF NEW."orderNumber"='ORD-LUNCH-005' THEN RAISE EXCEPTION 'injected'; END IF; RETURN NEW; END;

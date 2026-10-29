@@ -1,8 +1,3 @@
-/**
- * Delivery area rule: customers must live within 3 km (straight line) of the shop.
- * Covers customer create/update, order create/update, simulate and route optimization.
- * Shop = (16.2465, 103.2505). Due north: lat 16.2726 = 2.9 km, 16.2744 = 3.1 km, 16.30 = 5.95 km.
- */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { bootPg, createDb, connectDb, shutdownPg, startApp, req, login } from './helpers';
@@ -14,9 +9,9 @@ let db: Client;
 let admin: string;
 let farCustomerId: number;
 
-const IN_RANGE = { lat: 16.2726, lng: 103.2505 }; // 2.9 km
-const JUST_OUTSIDE = { lat: 16.2744, lng: 103.2505 }; // 3.1 km
-const FAR = { lat: 16.3, lng: 103.2505 }; // 5.95 km
+const IN_RANGE = { lat: 16.2726, lng: 103.2505 };
+const JUST_OUTSIDE = { lat: 16.2744, lng: 103.2505 };
+const FAR = { lat: 16.3, lng: 103.2505 };
 
 before(async () => {
   const booted = await bootPg(TAG, 56210);
@@ -24,7 +19,6 @@ before(async () => {
   base = await startApp(url, 3370);
   admin = await login(base, 'admin', 'admin1234');
   db = await connectDb(url);
-  // A customer that already exists outside the area (e.g. added before this rule existed)
   const { rows } = await db.query(
     `INSERT INTO customers (name, phone, address, lat, lng, zone)
      VALUES ('ลูกค้าไกล', '0800000000', 'นอกพื้นที่', $1, $2, 'ขามเรียง') RETURNING id`,
@@ -72,7 +66,6 @@ test('PUT /orders/:id switching to an out-of-area customer -> 400; editing boxes
   const order = (await req(base, 'POST', '/orders', { customerId: inside.id, boxCount: 1 }, admin)).body;
   assert.equal((await req(base, 'PUT', `/orders/${order.id}`, { customerId: farCustomerId }, admin)).status, 400);
 
-  // An order that already belongs to a far customer can still have its box count edited
   const { rows } = await db.query(
     `INSERT INTO orders ("orderNumber", "customerId", "boxCount", status) VALUES ('FAR-EDIT', $1, 1, 'pending') RETURNING id`,
     [farCustomerId]

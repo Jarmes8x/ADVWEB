@@ -1,4 +1,3 @@
-// Test helper: run initDatabase() once in a clean process, then exit.
 import { initDatabase, pool } from '../../dbconnect';
 
 initDatabase()

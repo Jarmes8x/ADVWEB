@@ -26,7 +26,6 @@ function frontendUrlForDisplay(): string | null {
   }
 }
 
-// GET /  หน้าแรกของ API (เปิดใน browser เพื่อเช็กว่า backend ทำงาน)
 router.get('/', (req, res) => {
   const frontendUrl = frontendUrlForDisplay();
   res.json({
@@ -37,7 +36,6 @@ router.get('/', (req, res) => {
   });
 });
 
-// GET /api/health - ตรวจว่าเซิร์ฟเวอร์ทำงานอยู่ (ไม่ต้องล็อกอิน)
 router.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });

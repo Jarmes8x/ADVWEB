@@ -9,8 +9,6 @@ import { requireRole, canAccessRider, sendServerError } from '../jwtauth';
 export const router = express.Router();
 const optimizer = new RouteOptimizerService();
 
-// คำนวณแผน: ถามระยะตามถนนจริงก่อน (OSRM) แล้วส่งตารางระยะเข้าตัวคำนวณ
-// ถ้า OSRM ใช้ไม่ได้ road-distance.ts จะคืนระยะเส้นตรงมาแทน
 async function buildPlan(orders: Order[], riders: Rider[], seed: number) {
   const { matrix, source } = await getRoadDistanceMatrix(routePoints(orders, SHOP_LOCATION));
   const plan = optimizer.optimize(orders, riders, SHOP_LOCATION, seed, matrix);
@@ -18,7 +16,6 @@ async function buildPlan(orders: Order[], riders: Rider[], seed: number) {
   return plan;
 }
 
-// State caching the latest plan
 let latestPlan: any = null;
 
 const ORDER_WITH_CUSTOMER = `
@@ -46,7 +43,6 @@ async function loadOrdersAndRiders(): Promise<{ orders: Order[]; riders: Rider[]
   return { orders, riders };
 }
 
-// POST /api/routes/optimize - Run or re-calculate route optimization
 router.post('/optimize', requireRole('admin'), async (req, res) => {
   try {
     const seed = Number(req.body?.seed) || 0;
@@ -55,7 +51,6 @@ router.post('/optimize', requireRole('admin'), async (req, res) => {
     const plan = await buildPlan(orders, riders, seed);
     latestPlan = plan;
 
-    // Persist assignments back to orders table
     await transaction(async (client) => {
       for (const route of plan.routes) {
         for (const ord of route.orders) {
@@ -75,11 +70,9 @@ router.post('/optimize', requireRole('admin'), async (req, res) => {
   }
 });
 
-// GET /api/routes/current - Get current optimized plan
 router.get('/current', requireRole('admin'), async (req, res) => {
   try {
     if (!latestPlan) {
-      // Generate initial plan automatically if not generated yet
       const { orders, riders } = await loadOrdersAndRiders();
       latestPlan = await buildPlan(orders, riders, 0);
     }
@@ -89,7 +82,6 @@ router.get('/current', requireRole('admin'), async (req, res) => {
   }
 });
 
-// GET /api/routes/rider/:jobCodeOrId - Rider view specific route by ID or job code
 router.get('/rider/:jobCodeOrId', async (req, res) => {
   try {
     const param = req.params.jobCodeOrId.trim();
@@ -111,7 +103,6 @@ router.get('/rider/:jobCodeOrId', async (req, res) => {
     }
 
     if (!latestPlan) {
-      // Initialize if needed
       const { orders, riders } = await loadOrdersAndRiders();
       latestPlan = await buildPlan(orders, riders, 0);
     }

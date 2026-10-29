@@ -1,7 +1,3 @@
-/**
- * Schema introspection tests — verify actual PostgreSQL catalog metadata,
- * not merely that queries work. Target: database built by `npm run migrate`.
- */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { bootPg, createDb, connectDb, shutdownPg, runScript } from './helpers';
@@ -14,7 +10,6 @@ let db: Client;
 before(async () => {
   const booted = await bootPg(TAG, 56100);
   url = await createDb(booted, 'schema_t');
-  // Build the schema via the real migration script (also creates _migrations)
   const res = await runScript('scripts/migrate.ts', {
     DATABASE_URL: url,
     DATABASE_URL_UNPOOLED: url

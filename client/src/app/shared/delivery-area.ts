@@ -1,13 +1,6 @@
-/**
- * พื้นที่จัดส่ง: รัศมีเส้นตรง 3 กม. รอบร้าน
- * ⚠️ ค่าทั้งหมดต้องตรงกับ server (MAX_DELIVERY_RADIUS_KM ใน server/services/route-optimizer.ts
- *    และ SHOP_LOCATION ใน server/dbconnect.ts) หน้าเว็บเช็กไว้ก่อนเพื่อบอกผู้ใช้ทันที
- *    ส่วน backend เช็กซ้ำทุกครั้งที่บันทึก
- */
 export const SHOP_LOCATION = { lat: 16.2465, lng: 103.2505 };
 export const MAX_DELIVERY_RADIUS_KM = 3;
 
-/** ระยะเส้นตรงจากร้าน (กม.) สูตร Haversine เดียวกับ server ปัดทศนิยม 2 ตำแหน่ง */
 export function distanceFromShopKm(lat: number, lng: number): number {
   const R = 6371;
   const toRad = (deg: number) => (deg * Math.PI) / 180;

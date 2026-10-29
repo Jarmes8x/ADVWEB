@@ -1,23 +1,8 @@
-/**
- * One-off data transfer: SQLite (database.sqlite) -> PostgreSQL (Neon).
- *
- * Copies customers, riders and orders preserving IDs, timestamps and
- * relationships, then resets the Postgres identity sequences so new
- * inserts continue from the highest existing ID. Prints row counts for
- * verification. Safe to re-run: existing rows are skipped (ON CONFLICT).
- *
- *   npm run migrate:data
- *
- * Source file: server/database.sqlite (override with SQLITE_PATH env var).
- * Target:      DATABASE_URL_UNPOOLED or DATABASE_URL.
- * Requires Node.js >= 23.4 (built-in node:sqlite module).
- */
 import 'dotenv/config';
 import path from 'path';
 import fs from 'fs';
 import { Client } from 'pg';
 
-// node:sqlite is available without a flag on Node >= 23.4
 const { DatabaseSync } = require('node:sqlite');
 
 const sqlitePath = process.env.SQLITE_PATH || path.resolve(__dirname, '../database.sqlite');
@@ -48,7 +33,6 @@ async function main() {
     const riders = sqlite.prepare('SELECT * FROM riders').all() as any[];
     const orders = sqlite.prepare('SELECT * FROM orders').all() as any[];
 
-    // Optional columns/tables that only exist in newer SQLite databases.
     const customerCols = sqlite.prepare("PRAGMA table_info(customers)").all() as any[];
     const hasZone = customerCols.some((c) => c.name === 'zone');
     const hasUsers = (sqlite
@@ -94,7 +78,6 @@ async function main() {
       );
     }
 
-    // Keep identity sequences ahead of the imported IDs.
     await pg.query(`SELECT setval(pg_get_serial_sequence('customers','id'), COALESCE((SELECT MAX(id) FROM customers), 1))`);
     await pg.query(`SELECT setval(pg_get_serial_sequence('orders','id'), COALESCE((SELECT MAX(id) FROM orders), 1))`);
     if (hasUsers) {

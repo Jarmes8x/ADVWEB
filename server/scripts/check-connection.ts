@@ -1,18 +1,3 @@
-/**
- * Database connectivity diagnostic — safe to run anywhere.
- *
- *   npm run check:db
- *
- * For each configured target (DATABASE_URL pooled, DATABASE_URL_UNPOOLED direct):
- *   - reports whether the env var is configured/missing
- *   - parses the URL and prints host / port / database / user (never the password)
- *   - resolves DNS, opens a TCP socket, performs a TLS handshake
- *   - connects with pg and runs SELECT 1, current_database(),
- *     current_schema(), current_user, and the SSL status of the session
- *
- * Never prints connection strings, passwords, or raw env dumps.
- * Exits 0 when every configured target connects, 1 otherwise.
- */
 import 'dotenv/config';
 import dns from 'node:dns/promises';
 import net from 'node:net';
@@ -50,7 +35,7 @@ function describeUrl(raw: string | undefined, label: string): TargetDesc {
 }
 
 function sslFor(url: string) {
-  if (/sslmode=|uselibpqcompat=/i.test(url)) return undefined; // let pg honor URL params
+  if (/sslmode=|uselibpqcompat=/i.test(url)) return undefined;
   if (/@(localhost|127\.0\.0\.1|0\.0\.0\.0)(:|\/|$)/i.test(url)) return false;
   return { rejectUnauthorized: true };
 }
@@ -100,8 +85,6 @@ async function checkTarget(desc: TargetDesc, rawUrl: string): Promise<boolean> {
     console.log('  TCP: FAIL', errInfo(e));
     return false;
   }
-  // TLS required unless the URL explicitly disables SSL (sslmode=disable or
-  // a localhost target with no sslmode). sslmode=require implies TLS on the wire.
   const wantsTls = sslFor(rawUrl) !== false;
   if (wantsTls) {
     try {
@@ -122,9 +105,6 @@ async function checkTarget(desc: TargetDesc, rawUrl: string): Promise<boolean> {
       `SELECT 1 AS ok, current_database() AS db, current_schema() AS schema, current_user AS usr,
               COALESCE((SELECT ssl FROM pg_stat_ssl WHERE pid = pg_backend_pid()), false) AS backend_ssl`
     );
-    // pg_stat_ssl reflects the server's view: behind Neon's proxy/pooler the
-    // compute node sees a plaintext hop even though the client session is
-    // TLS-encrypted (sslmode=require would have failed otherwise).
     const sessionEncrypted = wantsTls ? 'tls (sslmode=require enforced)' : 'plaintext';
     console.log(`  pg connect: ok -> ${JSON.stringify(rows[0])} | session: ${sessionEncrypted}`);
     return true;
